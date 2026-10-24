@@ -55,23 +55,6 @@ jobs:
       - name: Grow an island and check it against the almanac
         run: ./gradlew :core:test --console=plain 2>&1 | tee /tmp/build.log
 
-      - name: Say what the compiler said
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          {
-            echo 'The build stopped. The tail of its log:'
-            echo '```'
-            tail -c 7000 /tmp/build.log || true
-            echo '--- the baked Rift ---'
-            tail -c 4000 /tmp/rift-baked.txt 2>/dev/null || true
-            echo '--- files ---'
-            ls -la "$GITHUB_WORKSPACE/android"/*.png 2>/dev/null || true
-            echo '```'
-          } > /tmp/comment.md
-          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/comment.md
-
       - name: Draw a still of the island
         run: |
           ./gradlew :core:preview --console=plain \
@@ -172,6 +155,24 @@ jobs:
           name: test-report
           path: android/core/build/reports/tests/test
           if-no-files-found: ignore
+
+      - name: Say what went wrong
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo 'The build stopped. What the tools said:'
+            echo '```'
+            for f in /tmp/build.log /tmp/rift-baked.txt /tmp/rift-day.txt /tmp/rift-night.txt; do
+              echo "--- $f ---"
+              tail -c 5000 "$f" 2>/dev/null || echo '(no such log)'
+            done
+            echo '--- files ---'
+            ls -la "$GITHUB_WORKSPACE/android"/*.png 2>/dev/null || true
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/comment.md || true
 
   release:
     needs: build
