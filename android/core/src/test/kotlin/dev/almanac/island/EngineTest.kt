@@ -118,6 +118,40 @@ class EngineTest {
     }
 
     @Test
+    fun `a still moment draws the same picture however many frames have been drawn`() {
+        // with the time of day held still, a frame is a pure function of the world: drawing it again must change nothing
+        val scene = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62)
+        scene.setTimeOfDay(0.35)
+        scene.render()
+        val first = scene.frame.copyOf()
+        repeat(120) { scene.render() }
+        val differing = first.indices.count { first[it] != scene.frame[it] }
+        assertTrue("a repeated frame differs in $differing pixels", differing == 0)
+    }
+
+    @Test
+    fun `a running wallpaper draws the same picture as one that has only just been made`() {
+        // The wallpaper has already drawn thousands of frames when the walkers pass; a scene that has drawn them all
+        // must show exactly what a scene brought to the same moment and drawn once shows. (Without a depth buffer
+        // restored each frame, the trails of earlier sprites eat the later ones: the walkers sink into the ground.)
+        val drawn = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62)
+        drawn.setTimeOfDay(0.35)
+        repeat(150) {
+            drawn.step(1.0 / 30)
+            drawn.render()
+        }
+        val fresh = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62)
+        fresh.setTimeOfDay(0.35)
+        repeat(150) { fresh.step(1.0 / 30) }
+        fresh.render()
+        val differing = drawn.frame.indices.count { drawn.frame[it] != fresh.frame[it] }
+        assertTrue(
+            "a wallpaper that has drawn 150 frames differs from a fresh one at the same moment in $differing pixels",
+            differing == 0,
+        )
+    }
+
+    @Test
     fun `the same seed grows the same island, another seed another`() {
         val a = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62)
         val b = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62)

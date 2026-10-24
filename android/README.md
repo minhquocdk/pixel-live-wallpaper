@@ -35,6 +35,12 @@ Mỗi APK được ký bằng khoá debug nên cài thẳng lên máy là chạy
 
 ## Cài và đặt làm hình nền
 
+> Bản APK trên Actions được ký bằng khoá debug sinh ra trên máy chủ mỗi lần build, nên khi cài **đè** lên bản trước,
+> Android có thể báo "Ứng dụng chưa được cài đặt". Gỡ bản cũ rồi cài lại là xong. Muốn cập nhật êm về sau, thêm
+> `KEYSTORE_BASE64`/`KEYSTORE_PASSWORD`/`KEY_ALIAS`/`KEY_PASSWORD` vào Secrets và bật phần ký riêng trong
+> `app/build.gradle.kts`.
+
+
 1. Chép APK sang điện thoại và cài (cho phép "Cài từ nguồn không xác định" một lần).
 2. Mở app **Island** → bấm **Đặt làm hình nền động** / *Set as live wallpaper*.
 3. Hoặc tự làm: giữ lâu màn hình chính → **Hình nền** → **Hình nền động** → **Island**.
@@ -56,7 +62,7 @@ Mỗi APK được ký bằng khoá debug nên cài thẳng lên máy là chạy
 
 | | Bản web (`examples/island`) | Bản Kotlin |
 | --- | --- | --- |
-| Một khung | ~0,85 giây (cả khung, kể cả chữ) | **~7 ms** ở 384×216, **~13 ms** ở 768×432 (JVM trên laptop) |
+| Một khung | ~0,85 giây (cả khung, kể cả chữ) | **~4 ms** ở 384×216, **~20 ms** ở 768×432 (JVM trên laptop) |
 | Cỡ tranh | cố định 384×216 | máy tự chọn (mặc định ~210 000 pixel, ví dụ 307×682), đổi được tới 420 000 |
 | Dựng đảo | ~0,5 giây mỗi lần đổi hạt giống | ~0,5 giây, **trên thread nền**, hình nền cũ vẫn chạy |
 | Khi không nhìn thấy | vẫn vẽ | **dừng hẳn** (khoá màn hình, app khác che) |
@@ -68,6 +74,8 @@ Bốn điều làm nên tốc độ đó:
 - **Mỗi vật đứng yên là một sprite dựng sẵn** — mỗi cây, mỗi nhà — thay vì vẽ lại từ đầu mỗi khung.
 - **Blit nguyên bitmap.** Engine vẽ ở cỡ tranh của nó (vài trăm pixel), rồi đưa cả bitmap lên `Surface` một lần,
   không lọc, không nội suy: điện thoại không phải tô lại 1440 pixel cho mỗi pixel tranh, mà tranh vẫn sắc kiểu pixel.
+- **Mỗi khung bắt đầu lại từ nền tĩnh** (cả ảnh lẫn bộ đệm độ sâu), nên hình nền chạy hàng giờ vẫn y như khung đầu:
+  không có "vệt" của vật thể cũ ăn mòn vật thể mới — đây chính là lỗi làm người đi đường trông như bị chìm dưới đất.
 - **Tự chỉnh trong chế độ Tự động.** Engine đo thời gian thật của từng khung; nếu khung vượt 70% ngân sách thời gian
   thì thu tranh nhỏ lại một nấc, nếu còn nhanh thì nới ra — tối đa mỗi giây một lần, nên nó ổn định chứ không giật.
 

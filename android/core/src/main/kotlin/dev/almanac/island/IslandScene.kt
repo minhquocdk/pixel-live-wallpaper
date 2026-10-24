@@ -70,6 +70,12 @@ class IslandScene(
 
     private val base = IntArray(W * H)
     private val zb = IntArray(W * H)
+
+    // The depth and the markers of the ground alone, kept from when the island was built: every frame starts from
+    // these, so a sprite that passed over a pixel a moment ago cannot hide what passes over it next. (Without this,
+    // the depth only ever grows, and after a while the walkers are eaten away by the trails of those before them.)
+    private val baseZb = IntArray(W * H)
+    private val baseEm = IntArray(W * H)
     private val em = IntArray(W * H)
     private val topc = IntArray(world.n)
     private val topcAo = IntArray(world.n)
@@ -233,6 +239,8 @@ class IslandScene(
             }
         }
         System.arraycopy(base, 0, frame, 0, base.size)
+        System.arraycopy(zb, 0, baseZb, 0, zb.size)
+        System.arraycopy(em, 0, baseEm, 0, em.size)
         // where the lights stand: the houses, the lamps, the tower, the summit tree
         world.houses.forEach { h ->
             val sp = world.houseSprite(h)
@@ -588,6 +596,8 @@ class IslandScene(
     /** Draws the picture at the scene's time of day into [frame]. */
     fun render() {
         System.arraycopy(base, 0, frame, 0, base.size)
+        System.arraycopy(baseZb, 0, zb, 0, zb.size)
+        System.arraycopy(baseEm, 0, em, 0, em.size)
         // the water, moving
         val wt = waterTime(clock)
         for (y in 0 until world.GH) wobRow[y] = Math.round(sin(y * 0.35 + clock * 2.2)).toInt()
@@ -944,6 +954,9 @@ class IslandScene(
     private fun strideRate(stride: Double): Double = PI / (2 * stride)
 
     private val personCache = HashMap<Int, Sprite>()
+
+    /** The sprite a walker is drawn with right now (for the preview tool: what its anchor is, beside where it stands). */
+    fun personSpriteOf(p: Person): Sprite = personSprite(p, false, false)
     private fun personSprite(p: Person, legA: Boolean, legB: Boolean): Sprite {
         val key = (p.id shl 2) or ((if (legA) 1 else 0) shl 1) or (if (legB) 1 else 0)
         return personCache.getOrPut(key) { upscale(buildPerson(p, if (legA) 1 else 0, if (legB) 1 else 0), detail) }

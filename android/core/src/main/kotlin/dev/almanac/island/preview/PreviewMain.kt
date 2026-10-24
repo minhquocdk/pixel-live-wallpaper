@@ -158,11 +158,28 @@ fun main(args: Array<String>) {
     val steps = (t * fps).toInt()
     repeat(steps) { scene.step(1.0 / fps) }
     if (fixedDay) scene.setTimeOfDay(arg(args, "--tod", "0.3").toDouble())
-    val t1 = System.nanoTime()
-    scene.render()
-    val renderMs = (System.nanoTime() - t1) / 1e6
+    // a wallpaper draws frame after frame; --frames n draws n of them and keeps the last, as the wallpaper would
+    val frames = arg(args, "--frames", "1").toInt()
+    var renderMs = 0.0
+    for (f in 0 until maxOf(1, frames)) {
+        if (f > 0) scene.step(1.0 / fps)
+        val t1 = System.nanoTime()
+        scene.render()
+        renderMs = (System.nanoTime() - t1) / 1e6
+    }
     writePng(out, w, h, scene.frame, scale)
     if (args.contains("--debug")) println(scene.world.report().joinToString("\n"))
+    if (args.contains("--people")) {
+        // where each walker stands: world cell, the screen point it is stamped at, and how far above that its feet are
+        for (p in scene.people) {
+            val k = Math.round(p.s).toInt().coerceIn(0, p.line.size - 1)
+            val x = p.line[k][0]
+            val y = p.line[k][1] - 1
+            val g = scene.ground(x, y)
+            val sp = scene.personSpriteOf(p)
+            println("person ${p.id}: world $x,$y screen ${g[0]},${g[1]} sprite ${sp.w}x${sp.h} anchor ${sp.ax},${sp.ay}")
+        }
+    }
     if (args.contains("--sprites")) {
         // a sheet of the small sprites, on a checker so transparency shows
         val wd = scene.world

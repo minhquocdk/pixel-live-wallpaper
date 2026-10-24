@@ -133,4 +133,5 @@ def main():
             print('wrote', sys.argv[4])
 
 
-main()
+if __name__ == '__main__':
+    main()
