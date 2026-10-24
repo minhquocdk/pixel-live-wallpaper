@@ -32,13 +32,18 @@ class RiftTest {
 
     @Test
     fun `the mid lane is the shortest way, and the two outer lanes are alike`() {
-        val mid = RiftPlan.length(RiftPlan.MID)
+        // MID runs the whole map; LEFT is written for one half and turned for the other, so the two are compared a
+        // half at a time: half a mid lane against an outer lane that has to bow out and come back.
+        val midWhole = RiftPlan.length(RiftPlan.MID)
+        val midHalf = midWhole / 2
         val left = RiftPlan.length(RiftPlan.LEFT)
         val right = RiftPlan.length(RiftPlan.rightHalf())
-        assertTrue("mid $mid should be shorter than an outer lane $left", mid < left)
+        assertTrue("half a mid lane $midHalf should be shorter than an outer lane $left", midHalf < left)
         close(left, right, 1e-6)
-        // the outer road is longer than 1.2 times the mid road: it really does bow out
-        assertTrue("outer $left vs mid $mid", left / mid > 1.2)
+        // and the outer road really does bow out: half again as long as the straight way
+        assertTrue("outer $left vs half mid $midHalf", left / midHalf > 1.2)
+        // the whole map's outer lane, base to base, is the longer road: two halves against one mid
+        assertTrue("two outer lanes ${left * 2} vs the mid ${midWhole}", left * 2 > midWhole)
     }
 
     @Test
