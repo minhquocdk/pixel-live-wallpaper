@@ -1,12 +1,555 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>procedural-almanac</title>
-    <meta http-equiv="refresh" content="0; url=examples/island/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Pixel Live Wallpaper Studio</title>
+    <meta name="description" content="Hình nền pixel nghệ thuật sống động tạo hoàn toàn bằng thuật toán toán học." />
+    <style>
+      :root {
+        --bg: #0b0e14;
+        --panel: #131722;
+        --panel-border: #222938;
+        --ink: #f0f3f8;
+        --muted: #8b94a5;
+        --accent: #58a6ff;
+        --accent-glow: rgba(88, 166, 255, 0.25);
+        --accent2: #f778ba;
+        --chip: #1c2130;
+        --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Header & Branding */
+      header {
+        background: rgba(19, 23, 34, 0.85);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--panel-border);
+        padding: 12px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .logo-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo-badge {
+        background: linear-gradient(135deg, #f778ba, #58a6ff);
+        color: #fff;
+        font-family: var(--mono);
+        font-weight: 800;
+        font-size: 13px;
+        padding: 5px 9px;
+        border-radius: 6px;
+        letter-spacing: 0.05em;
+        box-shadow: 0 0 15px rgba(247, 120, 186, 0.4);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      /* Main container layout */
+      main {
+        flex: 1;
+        max-width: 1320px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 24px 40px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      /* Canvas Screen Showcase */
+      .stage-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, #181d2c 0%, #0d1017 100%);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .stage {
+        line-height: 0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        background: #000;
+        max-width: 100%;
+      }
+
+      canvas#screen {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      /* Live Wallpaper Switcher Cards */
+      .presets-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .preset-card {
+        background: var(--panel);
+        border: 2px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        position: relative;
+      }
+
+      .preset-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(88, 166, 255, 0.5);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      }
+
+      .preset-card.active {
+        border-color: var(--accent);
+        background: linear-gradient(180deg, rgba(88, 166, 255, 0.12) 0%, var(--panel) 100%);
+        box-shadow: 0 0 20px var(--accent-glow);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .card-tag {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: var(--chip);
+        color: var(--accent);
+      }
+
+      .preset-card.active .card-tag {
+        background: var(--accent);
+        color: #0b0e14;
+      }
+
+      .card-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .card-desc {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      /* Controls Toolbar */
+      .toolbar {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 14px 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 24px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .tool-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .control-label {
+        font-size: 13px;
+        color: var(--muted);
+        font-family: var(--mono);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      button {
+        font-family: var(--font);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid var(--panel-border);
+        background: var(--chip);
+        color: var(--ink);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+      }
+
+      button:hover {
+        background: #272f44;
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      button.primary {
+        background: var(--accent);
+        color: #0b0e14;
+        border-color: var(--accent);
+      }
+
+      button.primary:hover {
+        background: #79b8ff;
+      }
+
+      button.active {
+        background: var(--accent2);
+        color: #fff;
+        border-color: var(--accent2);
+      }
+
+      input[type='range'] {
+        accent-color: var(--accent);
+        height: 6px;
+        border-radius: 3px;
+        background: var(--chip);
+      }
+
+      .stats-badge {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent);
+        background: var(--chip);
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--panel-border);
+      }
+
+      /* Fullscreen mode indicator */
+      :fullscreen body, :-webkit-full-screen body {
+        padding: 0;
+        margin: 0;
+        background: #000;
+      }
+      :fullscreen .stage-wrapper, :-webkit-full-screen .stage-wrapper {
+        border: none;
+        border-radius: 0;
+        width: 100vw;
+        height: 100vh;
+        padding: 0;
+        background: #000;
+      }
+      :fullscreen canvas#screen, :-webkit-full-screen canvas#screen {
+        width: 100vw !important;
+        height: 100vh !important;
+        object-fit: contain;
+      }
+
+      @media (max-width: 768px) {
+        header {
+          padding: 10px 16px;
+        }
+        main {
+          padding: 14px 16px 30px;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+    </style>
   </head>
   <body>
-    <p>The demo is at <a href="examples/island/">examples/island/</a>.</p>
+    <header>
+      <div class="logo-group">
+        <span class="logo-badge">PIXEL LIVE</span>
+        <h1>Wallpaper Studio</h1>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="fullscreenBtn" title="Chế độ toàn màn hình làm Wallpaper">
+          ⛶ Toàn màn hình
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Canvas Screen Viewport -->
+      <div class="stage-wrapper" id="stageWrapper">
+        <div class="stage">
+          <canvas id="screen" width="384" height="216" aria-label="Pixel Live Wallpaper"></canvas>
+        </div>
+      </div>
+
+      <!-- Live Controls Toolbar -->
+      <div class="toolbar">
+        <div class="tool-group">
+          <button type="button" class="primary" id="playBtn">Tạm dừng</button>
+          <button type="button" id="randomSeedBtn">Đổi Seed ngẫu nhiên</button>
+          <span class="stats-badge" id="fpsDisplay">30 FPS · 384×216</span>
+        </div>
+
+        <div class="tool-group">
+          <span class="control-label">Thời gian:</span>
+          <input type="range" id="timeScrub" min="0" max="1" step="0.01" value="0.75" style="width: 130px;" title="Chuyển đổi Bình minh / Trưa / Hoàng hôn / Đêm" />
+          <span class="stats-badge" id="timeLabel">Đêm (Night)</span>
+        </div>
+
+        <div class="tool-group">
+          <button type="button" id="screenshotBtn" title="Chụp ảnh màn hình làm hình nền tĩnh HD">
+            📸 Xuất hình nền
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Wallpaper Theme Selection Cards -->
+      <section>
+        <h2 style="font-size: 16px; margin: 0 0 14px 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+          Lựa chọn 4 mẫu hình nền Live Wallpaper
+        </h2>
+        <div class="presets-grid">
+          <!-- Preset 1: One Island -->
+          <div class="preset-card active" data-preset="island">
+            <div class="card-header">
+              <span class="card-tag">MẪU 1</span>
+              <span style="font-size: 18px;">🏝️</span>
+            </div>
+            <h3 class="card-title">Hòn Đảo Kỳ Diệu (The Living Island)</h3>
+            <p class="card-desc">Hòn đảo kiến tạo theo chu kỳ tự nhiên với ruộng bậc thang, làng chài, hải đăng, hươu sao, chim bồ nông, sông uốn lượn và bão biển sấm chớp chân thực.</p>
+          </div>
+
+          <!-- Preset 2: Floating Celestial Island -->
+          <div class="preset-card" data-preset="floating">
+            <div class="card-header">
+              <span class="card-tag">MẪU 2</span>
+              <span style="font-size: 18px;">✨</span>
+            </div>
+            <h3 class="card-title">Đảo Bay Huyền Ảo (Celestial Island)</h3>
+            <p class="card-desc">Hòn đảo trôi bồng bềnh giữa biển mây thần tiên với thác nước chảy xuống vô tận, đền thờ Torii, cây hoa anh đào phát sáng và đèn lồng lơ lửng.</p>
+          </div>
+
+          <!-- Preset 3: Cyberpunk Tokyo Rain -->
+          <div class="preset-card" data-preset="cyberpunk">
+            <div class="card-header">
+              <span class="card-tag">MẪU 3</span>
+              <span style="font-size: 18px;">🌧️</span>
+            </div>
+            <h3 class="card-title">Đêm Mưa Cyberpunk (Neo Tokyo 2099)</h3>
+            <p class="card-desc">Thành phố tương lai rực rỡ ánh đèn neon, mưa rơi tí tách, xe bay hovercar lướt trong không trung, bảng quảng cáo hologram và vũng nước phản chiếu lung linh.</p>
+          </div>
+
+          <!-- Preset 4: Deep Ocean Abyss -->
+          <div class="preset-card" data-preset="abyss">
+            <div class="card-header">
+              <span class="card-tag">MẪU 4</span>
+              <span style="font-size: 18px;">🪼</span>
+            </div>
+            <h3 class="card-title">Đáy Biển Huyền Bí (Deep Ocean Abyss)</h3>
+            <p class="card-desc">Vực sâu đại dương thần bí với tia sáng mặt trời xuyên thấu, sứa khổng lồ phát quang sinh học nhịp nhàng, xác tàu cướp biển đắm và đàn cá bơi lội mềm mại.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { island } from './examples/island/scene.js';
+      import { createFloatingIslandScene } from './wallpapers/floating_island.js';
+      import { createCyberpunkCityScene } from './wallpapers/cyberpunk_city.js';
+      import { createDeepOceanScene } from './wallpapers/deep_ocean.js';
+      import * as almanac from './src/index.js';
+
+      const canvas = document.getElementById('screen');
+      const ctx = canvas.getContext('2d');
+      const playBtn = document.getElementById('playBtn');
+      const randomSeedBtn = document.getElementById('randomSeedBtn');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      const screenshotBtn = document.getElementById('screenshotBtn');
+      const timeScrub = document.getElementById('timeScrub');
+      const timeLabel = document.getElementById('timeLabel');
+      const cards = document.querySelectorAll('.preset-card');
+
+      let currentPreset = 'island';
+      let currentSeed = 'heron-bay-8';
+      let activeScene = null;
+      let isPlaying = true;
+      let startTime = performance.now();
+      let lastFrameTime = performance.now();
+      let frameCount = 0;
+      let fpsTimer = performance.now();
+      let currentTod = 0.75; // Night by default
+
+      // Auto fit canvas smoothly
+      function fitCanvas() {
+        const container = document.getElementById('stageWrapper');
+        if (!container) return;
+        const maxW = container.clientWidth - 36;
+        const scale = Math.max(1, Math.min(4, Math.floor(maxW / 384)));
+        canvas.style.width = (384 * scale) + 'px';
+      }
+      window.addEventListener('resize', fitCanvas);
+      fitCanvas();
+
+      // Time of day label formatter
+      function updateTimeLabel(val) {
+        if (val < 0.2) timeLabel.textContent = 'Bình minh (Dawn)';
+        else if (val < 0.45) timeLabel.textContent = 'Ban ngày (Day)';
+        else if (val < 0.65) timeLabel.textContent = 'Hoàng hôn (Dusk)';
+        else timeLabel.textContent = 'Ban đêm (Night)';
+      }
+
+      // Initialize Scene Factory
+      function loadScene(presetName, seed) {
+        currentPreset = presetName;
+        currentSeed = seed;
+
+        if (presetName === 'island') {
+          const isl = island(seed);
+          activeScene = {
+            name: 'The Living Island',
+            W: isl.W, H: isl.H,
+            render: (timeSec, tod) => {
+              // Frame calculation for the island scene timeline
+              const f = Math.floor((timeSec * isl.FPS) % isl.frames);
+              return isl.frame(f);
+            }
+          };
+        } else if (presetName === 'floating') {
+          activeScene = createFloatingIslandScene(seed);
+        } else if (presetName === 'cyberpunk') {
+          activeScene = createCyberpunkCityScene(seed);
+        } else if (presetName === 'abyss') {
+          activeScene = createDeepOceanScene(seed);
+        }
+      }
+
+      // Render Loop
+      function tick(now) {
+        requestAnimationFrame(tick);
+        if (!isPlaying || !activeScene) return;
+
+        const timeSec = (now - startTime) / 1000;
+        const px = activeScene.render(timeSec, currentTod);
+
+        ctx.putImageData(
+          new ImageData(new Uint8ClampedArray(px.buffer, px.byteOffset, px.byteLength), activeScene.W, activeScene.H),
+          0,
+          0
+        );
+
+        // FPS counter calculation
+        frameCount++;
+        if (now - fpsTimer >= 1000) {
+          document.getElementById('fpsDisplay').textContent = `${frameCount} FPS · 384×216`;
+          frameCount = 0;
+          fpsTimer = now;
+        }
+      }
+
+      // UI Interactions
+      cards.forEach(card => {
+        card.addEventListener('click', () => {
+          cards.forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          const preset = card.dataset.preset;
+          loadScene(preset, currentSeed);
+        });
+      });
+
+      playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        playBtn.textContent = isPlaying ? 'Tạm dừng' : 'Tiếp tục';
+      });
+
+      randomSeedBtn.addEventListener('click', () => {
+        const words = almanac.seedWords(['azure', 'solar', 'mystic', 'neon', 'lunar', 'emerald', 'crystal', 'velvet'], ['dream', 'haven', 'spire', 'abyss', 'drift', 'grove', 'peak', 'cove']);
+        currentSeed = words + '-' + Math.floor(Math.random() * 99);
+        loadScene(currentPreset, currentSeed);
+      });
+
+      timeScrub.addEventListener('input', (e) => {
+        currentTod = parseFloat(e.target.value);
+        updateTimeLabel(currentTod);
+      });
+
+      fullscreenBtn.addEventListener('click', () => {
+        const stageWrapper = document.getElementById('stageWrapper');
+        if (!document.fullscreenElement) {
+          stageWrapper.requestFullscreen().catch(err => {
+            alert(`Lỗi toàn màn hình: ${err.message}`);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      });
+
+      screenshotBtn.addEventListener('click', () => {
+        // Create high-res download
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 1920;
+        tempCanvas.height = 1080;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.imageSmoothingEnabled = false;
+        tempCtx.drawImage(canvas, 0, 0, 1920, 1080);
+
+        const a = document.createElement('a');
+        a.download = `pixel-live-wallpaper-${currentPreset}-${Date.now()}.png`;
+        a.href = tempCanvas.toDataURL('image/png');
+        a.click();
+      });
+
+      // Start initial scene
+      loadScene('island', currentSeed);
+      updateTimeLabel(currentTod);
+      requestAnimationFrame(tick);
+    </script>
   </body>
 </html>
