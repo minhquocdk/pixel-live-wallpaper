@@ -124,24 +124,28 @@ jobs:
           if-no-files-found: error
 
       - name: Keep the Rift's stills in the branch
+        continue-on-error: true
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
+          set -x
           BRANCH="${{ github.event.pull_request.head.ref }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin "$BRANCH"
           git checkout -B "$BRANCH" "origin/$BRANCH"
           mkdir -p docs
-          cp "$GITHUB_WORKSPACE/android/rift-day.png" docs/rift-day.png
-          cp "$GITHUB_WORKSPACE/android/rift-night.png" docs/rift-night.png
-          cp "$GITHUB_WORKSPACE/android/rift-baked-day.png" docs/rift-baked-day.png
-          cp "$GITHUB_WORKSPACE/android/rift-baked-night.png" docs/rift-baked-night.png
-          git add docs/rift-baked-day.png docs/rift-baked-night.png
-          { echo "The engine's own numbers, as the build drew them (307 x 682, the frame a 20:9 phone gets):"; echo; echo '```'; grep -hE "^rift " /tmp/rift-day.txt /tmp/rift-night.txt /tmp/rift-baked.txt; echo '```'; } > docs/rift-report.md
-          git add docs/rift-day.png docs/rift-night.png docs/rift-report.md
+          for n in day night baked-day baked-night; do
+            cp "$GITHUB_WORKSPACE/android/rift-$n.png" "docs/rift-$n.png"
+          done
+          { echo "The engine's own numbers, as the build drew them (307 x 682, the frame a 20:9 phone gets):"; echo; echo '```'; grep -hE "^rift " /tmp/rift-day.txt /tmp/rift-night.txt /tmp/rift-baked.txt 2>/dev/null; echo '```'; } > docs/rift-report.md
+          git add docs/rift-day.png docs/rift-night.png docs/rift-baked-day.png docs/rift-baked-night.png docs/rift-report.md
           if git diff --cached --quiet; then echo "the stills are as the branch already has them"; exit 0; fi
           git commit -m "docs: the Rift's stills and numbers, as the engine drew them"
-          git push origin "HEAD:$BRANCH"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:$BRANCH"; then exit 0; fi
+            git pull --rebase origin "$BRANCH" || true
+          done
+          exit 1
 
       - name: Hand over the test report
         if: always()
