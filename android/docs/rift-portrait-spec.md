@@ -500,6 +500,40 @@ bo tròn 2 màu có dither ở mép, không phải 9 cây.
 
 ---
 
+### 14.c Vòng 4 — chính engine vẽ
+
+Sau khi code xong, engine tự vẽ ở đúng khung của điện thoại 20:9 (307 × 682):
+
+![Đảo Đôi Sông, engine vẽ, ban ngày](../docs/rift-day.png)
+![Đảo Đôi Sông, engine vẽ, ban đêm](../docs/rift-night.png)
+
+| Phép đo | Ảnh ChatGPT vòng 3 | Engine (307 × 682) |
+|---|---|---|
+| Dựng bản đồ | — | **77 ms** một lần, trên CI |
+| Một khung | — | **1.3 ms** ban ngày, **2.4 ms** ban đêm (có grade + đèn) |
+| Ngân sách §10 | — | 8 ms/khung ⇒ còn thừa ~3× |
+| Luma dải trên 6% | 0.155 (chưa scrim) | **0.05** sau scrim — đạt ngưỡng 0.10 |
+| Đối xứng 180° | gần đúng | **đúng tuyệt đối** (cùng một nửa, quay 180°) |
+| Số trụ / ức chế / rừng / hố | ước lượng | **18 / 6 / 4 / 2**, kiểm bằng test |
+
+**Những gì engine làm được mà ảnh vẽ không:** đối xứng chính xác, lane dài ngắn đo được, sông cắt mỗi lane đúng
+một lần, mọi thứ tất định theo seed, và khung hình chạy 30–60 fps trên máy thật.
+
+**Những gì còn kém hơn ảnh vẽ** (ghi lại để vòng sau, không giấu):
+
+1. **Rừng vẫn hơi giống "vũng"**: bốn cụm tán tròn chồng lên nhau đọc ra khối, nhưng chưa ra *cây*. Cần crown lệch
+   tâm hơn và một vài tán nhỏ ở rìa.
+2. **Sông gần như thẳng** so với chữ S của ảnh — biên độ 0.013 là quá nhỏ ở 307 px. Tăng lên 0.022 và cho bờ đá
+   nhô ra thụt vào.
+3. **Trụ vẫn nhỏ** so với tường thành trong ảnh; và thiếu bệ đá nhiều tầng.
+4. **Thiếu vách đá có chiều sâu**: hiện là ba dải màu phẳng, chưa có khối đá lồi lõm như ảnh.
+5. **Thiếu cột cờ đúng chất** — cờ hiện đọc được nhưng cột mảnh.
+
+Không cái nào là lỗi kiến trúc: cả năm đều là bậc thang chi tiết trong `RiftScene`, sửa được mà không đụng
+`RiftPlan` hay test nào.
+
+---
+
 ## 15. Câu hỏi mở — cần bạn quyết trước khi code
 
 1. **Mức trung thành**: giữ đủ 3 trụ/lane + 3 ức chế + 2 trụ nhà (18 + 8 sprite nhỏ, hơi rậm ở 300 px), hay rút

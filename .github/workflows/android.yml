@@ -125,7 +125,7 @@ jobs:
           mkdir -p docs
           cp "$GITHUB_WORKSPACE/android/rift-day.png" docs/rift-day.png
           cp "$GITHUB_WORKSPACE/android/rift-night.png" docs/rift-night.png
-          { echo "The engine's own numbers, as the build drew them:"; echo; echo '```'; cat /tmp/rift-day.txt /tmp/rift-night.txt; echo '```'; } > docs/rift-report.md
+          { echo "The engine's own numbers, as the build drew them (307 x 682, the frame a 20:9 phone gets):"; echo; echo '```'; grep -hE "^rift " /tmp/rift-day.txt /tmp/rift-night.txt; echo '```'; } > docs/rift-report.md
           git add docs/rift-day.png docs/rift-night.png docs/rift-report.md
           if git diff --cached --quiet; then echo "the stills are as the branch already has them"; exit 0; fi
           git commit -m "docs: the Rift's stills and numbers, as the engine drew them"
