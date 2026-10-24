@@ -294,7 +294,7 @@ class IslandWallpaperService : WallpaperService() {
         /** The baked background and its mask, if this build has them at this exact size. */
         private fun bakedRift(w: Int, h: Int): Pair<dev.almanac.island.PngImage, dev.almanac.island.PngImage>? {
             return try {
-                val assets = context.assets
+                val assets = this@IslandWallpaperService.assets
                 fun load(name: String) = dev.almanac.island.readPng(assets.open("rift/$name").readBytes())
                 val bg = load("background.png")
                 val mk = load("masks.png")
