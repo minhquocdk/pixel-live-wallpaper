@@ -63,8 +63,9 @@ class RiftScene(
     private val corner = min(px1 - px0, py1 - py0) * 0.045
 
     // Colours.
-    private val grass = listOf("#6f9b45", "#547a37", "#7aa64d", "#5f8a3e").map { palette.rift(it) }
-    private val grassDark = palette.rift("#43632f")
+    private val grass = listOf("#5d7f3c", "#65893f", "#709543", "#7ba047").map { palette.rift(it) }
+    private val grassDark = palette.rift("#48642f")
+    private val grassEdge = palette.rift("#3d5529")
     private val dirt = palette.rift("#b99a68")
     private val dirtRim = palette.rift("#8f7448")
     private val stone = palette.rift("#8a8f96")
@@ -143,15 +144,16 @@ class RiftScene(
     }
 
     private fun buildPlateau() {
-        val cliffTop = palette.rift("#3c414c")
-        val cliffMid = palette.rift("#2f333c")
-        val cliffLow = palette.rift("#23262d")
+        val cliffTop = palette.rift("#454a56")
+        val cliffMid = palette.rift("#343841")
+        val cliffLow = palette.rift("#262931")
+        val cliffDeep = palette.rift("#1b1e24")
         val vine = palette.rift("#4f7a3c")
-        val xa = floor(px0 - 16 * u).toInt()
-        val xb = ceil(px1 + 16 * u).toInt()
-        val ya = floor(py0 - 16 * u).toInt()
-        val yb = ceil(py1 + 16 * u).toInt()
-        val cell = max(1, (2 * u).roundToInt())
+        val vineDark = palette.rift("#38592c")
+        val xa = floor(px0 - 14 * u).toInt()
+        val xb = ceil(px1 + 14 * u).toInt()
+        val ya = floor(py0 - 14 * u).toInt()
+        val yb = ceil(py1 + 14 * u).toInt()
         for (y in ya..yb) {
             for (x in xa..xb) {
                 if (x < 0 || y < 0 || x >= W || y >= H) continue
@@ -159,29 +161,49 @@ class RiftScene(
                 val d = depth(x.toDouble(), y.toDouble())
                 if (d >= 0) {
                     kind[i] = 1
-                    base[i] = if (d < 3.2 * u) {
-                        kind[i] = 3
-                        if (d < 0.9 * u) stoneDark else stoneMid
-                    } else {
-                        val n = latticeRandom(x / cell, y / cell, seed)
-                        val pick = when {
-                            n < 0.42 -> 1
-                            n < 0.72 -> 0
-                            n < 0.9 -> 3
-                            else -> 2
+                    base[i] = when {
+                        d < 2.2 * u -> {
+                            kind[i] = 3
+                            stoneDark
                         }
-                        if (bayerThreshold(x, y) > 0.94) grassDark else grass[pick]
+                        d < 3.4 * u -> {
+                            kind[i] = 3
+                            stoneMid
+                        }
+                        // grass in patches: a broad noise, then a second finer one, and a dark line at the wall
+                        else -> {
+                            val broad = fractalNoise(x / (26.0 * u), y / (26.0 * u), seed, 3)
+                            val fine = fractalNoise(x / (7.0 * u), y / (7.0 * u), seed + 7, 2)
+                            val v = broad * 0.72 + fine * 0.28
+                            val shade = (v * 4.0).toInt().coerceIn(0, 3)
+                            when {
+                                d < 5.5 * u -> grassEdge
+                                bayerThreshold(x, y) > 0.9 -> grass[(shade + 3) % 4]
+                                else -> grass[shade]
+                            }
+                        }
                     }
                 } else {
                     val out = -d
                     base[i] = when {
-                        out < 3 * u -> cliffTop
-                        out < 7 * u -> cliffMid
-                        out < 13 * u -> cliffLow
+                        out < 2.4 * u -> cliffTop
+                        out < 6 * u -> cliffMid
+                        out < 10 * u -> cliffLow
+                        out < 14 * u -> cliffDeep
                         else -> base[i]
                     }
-                    if (out < 13 * u && latticeRandom(x, y, seed + 3) > 0.93) base[i] = vine
-                    if (out < 1.5 * u) kind[i] = 3
+                    // a strata line every few pixels down the cliff face
+                    if (out > 2 * u && out < 12 * u && ((y + (if (x % 5 == 0) 1 else 0)) % max(3, (3 * u).roundToInt())) == 0) {
+                        base[i] = scalePacked(base[i], 0.82)
+                    }
+                    // vines: short strands hanging off the lip, never a speckle
+                    if (out < 9 * u) {
+                        val strand = latticeRandom(x, 0, seed + 3)
+                        if (strand > 0.86) {
+                            val len = 2 + (strand * 9).toInt()
+                            if (out < len * u) base[i] = if (bayerThreshold(x, y) > 0.5) vine else vineDark
+                        }
+                    }
                 }
             }
         }
@@ -242,8 +264,9 @@ class RiftScene(
         val half = RiftPlan.RIVER_HALF * (py1 - py0)
         val xa = floor(RiftPlan.across(RiftPlan.RIVER_FROM) * W).toInt()
         val xb = ceil(RiftPlan.across(RiftPlan.RIVER_TO) * W).toInt()
-        val deep = waterPal.LV[3]
-        val shallow = waterPal.LV[0]
+        val deep = waterPal.LV[6]
+        val shallow = waterPal.LV[1]
+        val rimStone = mixPacked(stoneDark, bank, 0.45)
         for (x in xa..xb) {
             if (x < 0 || x >= W) continue
             val p = (x / W.toDouble() - RiftPlan.INSET_X) / (1 - 2 * RiftPlan.INSET_X)
@@ -255,16 +278,21 @@ class RiftScene(
                 val i = y * W + x
                 if (kind[i].toInt() == 3) continue
                 val t = abs(y - cy) / half
-                base[i] = mixPacked(deep, shallow, t)
+                base[i] = mixPacked(deep, shallow, t * t)
                 kind[i] = 4
                 waterIdx.add(i)
                 waterDepth.add((1 - t) * 44)
             }
-            for (y in intArrayOf(ya - 1, yb + 1)) {
+            for (y in intArrayOf(ya - 1, yb + 1, ya - 2, yb + 2)) {
                 if (y < 0 || y >= H) continue
                 val i = y * W + x
                 if (kind[i].toInt() == 3 || kind[i].toInt() == 4) continue
-                base[i] = if (latticeRandom(x, y, seed + 11) > 0.5) bank else mixPacked(bank, grassDark, 0.5)
+                val edge = abs(y - ya) < abs(y - yb)
+                base[i] = when {
+                    abs(y - ya) <= 1 || abs(y - yb) <= 1 -> rimStone
+                    edge -> bank
+                    else -> mixPacked(bank, grassDark, 0.45)
+                }
             }
         }
         buildBridge()
@@ -293,11 +321,17 @@ class RiftScene(
                 }
             }
         }
-        // the bridge's rails, a shade lighter, at either side
-        for (y in top.toInt()..bottom.toInt()) {
+        // rails and posts, so the crossing reads as a bridge and not a patch of dirt
+        for (y in top.toInt() - 1..bottom.toInt() + 1) {
             for (x in intArrayOf(xa.toInt() + 1, xb.toInt() - 1)) {
                 if (x < 0 || y < 0 || x >= W || y >= H) continue
-                base[y * W + x] = gold
+                base[y * W + x] = woodDark
+            }
+            if (y % max(4, (5 * u).roundToInt()) == 0) {
+                for (x in intArrayOf(xa.toInt(), xa.toInt() + 1, xb.toInt() - 1, xb.toInt())) {
+                    if (x < 0 || y < 0 || x >= W || y >= H) continue
+                    base[y * W + x] = gold
+                }
             }
         }
     }
@@ -308,25 +342,32 @@ class RiftScene(
             if (piece.kind != "forest") continue
             val cx = RiftPlan.across(piece.p) * W
             val cy = RiftPlan.down(piece.q) * H
-            val rx = (px1 - px0) * 0.125
-            val ry = (py1 - py0) * 0.100
-            // the mass: one dark shape, dithered at its edge, a few crowns over it
-            ellipse(cx, cy, rx, ry, canopy[0], markKind = 1)
-            for (k in 1 until 4) {
-                val ang = k * 2.1 + piece.p * 6.0
-                val ox = cos(ang) * rx * 0.34
-                val oy = sin(ang) * ry * 0.30
-                ellipse(cx + ox, cy + oy, rx * 0.55, ry * 0.55, canopy[k], markKind = 1)
+            val rx = (px1 - px0) * 0.132
+            val ry = (py1 - py0) * 0.098
+            // a dark outline under everything, so the wood sits on the grass
+            ellipse(cx, cy + 1.4 * u, rx + 1.6 * u, ry + 1.2 * u, ink)
+            ellipse(cx, cy, rx, ry, canopy[0])
+            // crowns: four clumps, each lit from the upper left, so it reads as a wood and not a puddle
+            val clumps = listOf(
+                doubleArrayOf(-0.42, -0.34, 0.62), doubleArrayOf(0.38, -0.28, 0.58),
+                doubleArrayOf(-0.30, 0.34, 0.54), doubleArrayOf(0.44, 0.30, 0.50),
+            )
+            for ((k, c) in clumps.withIndex()) {
+                val ox = c[0] * rx
+                val oy = c[1] * ry
+                ellipse(cx + ox, cy + oy, rx * c[2], ry * c[2], canopy[if (k % 2 == 0) 1 else 2])
+                ellipse(cx + ox - 0.1 * rx, cy + oy - 0.12 * ry, rx * c[2] * 0.62, ry * c[2] * 0.58, canopy[3])
             }
-            for (y in floor(cy - ry).toInt()..ceil(cy + ry).toInt()) {
-                for (x in floor(cx - rx).toInt()..ceil(cx + rx).toInt()) {
+            // a dithered edge, one ring of leaves, never inside the wood
+            for (y in floor(cy - ry - 2 * u).toInt()..ceil(cy + ry + 2 * u).toInt()) {
+                for (x in floor(cx - rx - 2 * u).toInt()..ceil(cx + rx + 2 * u).toInt()) {
                     if (x < 0 || y < 0 || x >= W || y >= H) continue
-                    val ex = (x - cx) / rx
-                    val ey = (y - cy) / ry
+                    val ex = (x - cx) / (rx + 1.4 * u)
+                    val ey = (y - cy) / (ry + 1.4 * u)
                     val dd = ex * ex + ey * ey
-                    if (dd > 1.0) continue
-                    if (dd > 0.86 && bayerThreshold(x, y) > (1.0 - dd) * 4.4) base[y * W + x] = grassDark
-                    else if (latticeRandom(x, y, seed + 21) > 0.8) base[y * W + x] = canopy[3]
+                    if (dd <= 1.0 && dd > 0.72 && bayerThreshold(x, y) > (1.0 - dd) * 5.5) {
+                        base[y * W + x] = canopy[0]
+                    }
                 }
             }
             forestWall(cx, cy, rx, ry, if (piece.p < 0.5) 0.0 else PI)
@@ -334,14 +375,25 @@ class RiftScene(
     }
 
     private fun forestWall(cx: Double, cy: Double, rx: Double, ry: Double, gate: Double) {
-        val steps = max(48, ((rx + ry) / (1.4 * u)).toInt())
+        val steps = max(64, ((rx + ry) / (1.1 * u)).toInt())
         for (k in 0 until steps) {
             val a = k * 2 * PI / steps
             val diff = abs(((a - gate + PI) % (2 * PI)) - PI)
-            if (diff < 0.20) continue // the gate: one way in, facing its lane
-            val x = cx + cos(a) * (rx + 2.2 * u)
-            val y = cy + sin(a) * (ry + 2.2 * u)
-            block(x, y, stone, markKind = 3)
+            if (diff < 0.26) continue // the gate: one way in, facing its lane
+            val x = cx + cos(a) * (rx + 2.6 * u)
+            val y = cy + sin(a) * (ry + 2.6 * u)
+            val c = when {
+                k % 7 == 0 -> gold
+                (k / 3) % 2 == 0 -> stone
+                else -> stoneDark
+            }
+            block(x, y, c, markKind = 3)
+            block(x, y + 1.2 * u, stoneDark, markKind = 3)
+        }
+        // two posts either side of the gate
+        for (side in listOf(-1.0, 1.0)) {
+            val a = gate + side * 0.27
+            for (dy in 0..2) block(cx + cos(a) * (rx + 2.6 * u), cy + sin(a) * (ry + 2.6 * u) - dy * u, gold)
         }
     }
 
@@ -350,7 +402,7 @@ class RiftScene(
             val cx = RiftPlan.across(piece.p) * W
             val cy = RiftPlan.down(piece.q) * H
             when (piece.kind) {
-                "nexus" -> nexusTower(cx, cy, piece.team, 1.5)
+                "nexus" -> nexusTower(cx, cy, piece.team, 1.6)
                 "nexusTower" -> turret(cx, cy, piece.team, 0.85)
                 "fountain" -> fountain(cx, cy)
                 "tower" -> turret(cx, cy, piece.team, 1.0)
@@ -375,18 +427,28 @@ class RiftScene(
         if (team == 0) (if (deep) blueDeep else blue) else (if (deep) redDeep else red)
 
     private fun turret(cx: Double, cy: Double, team: Int, scale: Double) {
-        val s = u * scale
-        ellipse(cx, cy, 4.4 * s, 1.9 * s, stoneDark)
-        rect(cx - 2.2 * s, cy - 6.5 * s, cx + 2.2 * s, cy, stone)
-        rect(cx - 2.2 * s, cy - 6.5 * s, cx + 2.2 * s, cy - 5.0 * s, stoneMid)
-        rect(cx - 2.2 * s, cy - 7.2 * s, cx + 2.2 * s, cy - 6.5 * s, stoneDark)
-        ellipse(cx, cy - 8.4 * s, 1.7 * s, 2.3 * s, teamColour(team))
-        block(cx, cy - 10.4 * s, gold)
-        lights.add(Light(cx, cy - 8 * s, 9 * s, 0.75))
+        val s = u * 1.3 * scale
+        ellipse(cx, cy + 0.4 * s, 6.0 * s, 2.2 * s, ink)
+        ellipse(cx, cy, 5.4 * s, 2.0 * s, stoneDark)
+        ellipse(cx, cy - 0.4 * s, 4.2 * s, 1.5 * s, stoneMid)
+        rect(cx - 2.6 * s, cy - 7.4 * s, cx + 2.6 * s, cy, stone)
+        rect(cx - 2.6 * s, cy - 7.4 * s, cx - 1.4 * s, cy, stoneMid)
+        rect(cx - 3.1 * s, cy - 8.4 * s, cx + 3.1 * s, cy - 7.4 * s, stoneDark)
+        // the crystal: a diamond of the side's colour with a white glint, unmistakable at thumbnail size
+        val col = teamColour(team)
+        for (k in 0 until 8) {
+            val w = (2.2 - abs(k - 3.5) * 0.5) * s
+            for (x in floor(cx - w).toInt()..ceil(cx + w).toInt()) {
+                val c = if (k == 2 && x <= cx) mixPacked(col, 0xFFFFFF, 0.7) else col
+                block(x.toDouble(), cy - (12.6 - k) * s, c)
+            }
+        }
+        block(cx, cy - 13.6 * s, gold)
+        lights.add(Light(cx, cy - 9 * s, 11 * s, 0.8))
     }
 
     private fun inhibitor(cx: Double, cy: Double, team: Int) {
-        val s = u * 1.1
+        val s = u * 1.35
         ellipse(cx, cy, 3.4 * s, 1.5 * s, stoneDark)
         rect(cx - 2.5 * s, cy - 1.8 * s, cx + 2.5 * s, cy, stoneMid)
         ellipse(cx, cy - 4.2 * s, 1.8 * s, 2.8 * s, teamColour(team))
@@ -395,7 +457,7 @@ class RiftScene(
     }
 
     private fun nexusTower(cx: Double, cy: Double, team: Int, scale: Double) {
-        val s = u * scale
+        val s = u * 1.25 * scale
         ellipse(cx, cy, 8.5 * s, 3.4 * s, stoneDark)
         ellipse(cx, cy - 0.6 * s, 6.6 * s, 2.4 * s, stoneMid)
         ellipse(cx, cy - 0.6 * s, 4.6 * s, 1.5 * s, gold)
@@ -460,7 +522,7 @@ class RiftScene(
 
     private fun buildProps() {
         // bushes and loose stones along the roads, on grass only
-        for (k in 0 until 260) {
+        for (k in 0 until 170) {
             val x = latticeRandom(k, 1, seed + 41) * W
             val y = latticeRandom(k, 2, seed + 43) * H
             val xi = x.toInt()
@@ -477,7 +539,7 @@ class RiftScene(
             }
         }
         // a few tall trees off the lanes, so the ground is not a lawn
-        for (k in 0 until 90) {
+        for (k in 0 until 54) {
             val x = latticeRandom(k, 5, seed + 51) * W
             val y = latticeRandom(k, 6, seed + 53) * H
             val xi = x.toInt()

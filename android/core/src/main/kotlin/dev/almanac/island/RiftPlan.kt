@@ -21,7 +21,7 @@ object RiftPlan {
     const val INSET_TOP = 0.120
     const val INSET_BOTTOM = 0.080
 
-    const val RIVER_HALF = 0.028
+    const val RIVER_HALF = 0.024
     const val RIVER_FROM = 0.100
     const val RIVER_TO = 0.900
     const val BRIDGE_FROM = 0.462
@@ -37,7 +37,7 @@ object RiftPlan {
     fun down(q: Double): Double = INSET_TOP + q * (1 - INSET_TOP - INSET_BOTTOM)
 
     /** The river's centre line: a gentle S across the middle of the map. */
-    fun riverQ(p: Double): Double = 0.5 + 0.018 * sin(2 * PI * 1.2 * (p - 0.12) + 0.7)
+    fun riverQ(p: Double): Double = 0.5 + 0.013 * sin(2 * PI * 1.2 * (p - 0.12) + 0.7)
 
     fun inRiver(p: Double, q: Double): Boolean =
         p >= RIVER_FROM && p <= RIVER_TO && abs(q - riverQ(p)) <= RIVER_HALF
