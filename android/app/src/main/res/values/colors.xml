@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The island's own colours: the deep sea, the sand, the ink of its outlines and the gold of its lanterns. -->
+    <color name="sea_deep">#12324f</color>
+    <color name="sea">#1f5a92</color>
+    <color name="sand">#ead9a2</color>
+    <color name="ink">#12151c</color>
+    <color name="panel">#1b2430</color>
+    <color name="panel_light">#24303e</color>
+    <color name="gold">#ffd36e</color>
+    <color name="text">#ece6d6</color>
+    <color name="muted">#93a1b1</color>
+</resources>

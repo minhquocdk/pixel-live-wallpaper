@@ -1,0 +1,7 @@
+# what a build leaves behind, and what only a machine has
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+island.png
