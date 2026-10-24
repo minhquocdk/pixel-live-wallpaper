@@ -27,6 +27,7 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.almanac.island.IslandScene
+import dev.almanac.island.Theme
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -59,6 +60,8 @@ class IslandWallpaperService : WallpaperService() {
         private var dayMinutes = Prefs.day(prefs)
         private var targetFps = Prefs.fps(prefs)
         private var quality = Prefs.quality(prefs)
+        private var themeId = Prefs.theme(prefs)
+        private var builtTheme = ""
 
         // the frame, and the bitmap it is handed over in
         private var bitmap: Bitmap? = null
@@ -115,6 +118,13 @@ class IslandWallpaperService : WallpaperService() {
                     dayMinutes = Prefs.day(p)
                     handler.post { rebuild() }
                 }
+                "theme" -> {
+                    val t = Prefs.theme(p)
+                    if (t != themeId) {
+                        themeId = t
+                        handler.post { rebuild() }
+                    }
+                }
                 "fps" -> targetFps = Prefs.fps(p)
             }
         }
@@ -144,6 +154,7 @@ class IslandWallpaperService : WallpaperService() {
             quality = Prefs.quality(prefs)
             dayMinutes = Prefs.day(prefs)
             seedPhrase = Prefs.seed(prefs)
+            themeId = Prefs.theme(prefs)
         }
 
         override fun onDestroy() {
@@ -200,7 +211,8 @@ class IslandWallpaperService : WallpaperService() {
             }
             val (w, h, d) = pictureSize()
             // the same seed, at the same size, with days the same length: the island standing already is this island
-            val same = scene != null && w == artW && h == artH && seedPhrase == builtPhrase && dayMinutes == builtMinutes
+            val same = scene != null && w == artW && h == artH && seedPhrase == builtPhrase && dayMinutes == builtMinutes &&
+                themeId == builtTheme
             if (same) {
                 startTicking()
                 return
@@ -209,7 +221,10 @@ class IslandWallpaperService : WallpaperService() {
             handler.post {
                 val started = SystemClock.uptimeMillis()
                 val fresh = try {
-                    IslandScene(phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0)
+                    IslandScene(
+                        phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
+                        theme = Theme.fromId(themeId),
+                    )
                 } catch (t: Throwable) {
                     null
                 }
@@ -221,6 +236,7 @@ class IslandWallpaperService : WallpaperService() {
                     detail = d
                     builtPhrase = fresh.phrase
                     builtMinutes = dayMinutes
+                    builtTheme = fresh.theme.id
                     pixels = IntArray(w * h)
                     bitmap?.recycle()
                     bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -377,6 +393,7 @@ class IslandWallpaperService : WallpaperService() {
             val sc = scene
             return buildString {
                 appendLine("seed      ${sc?.phrase ?: seedPhrase}")
+                appendLine("theme     ${sc?.theme?.id ?: themeId}")
                 appendLine("seed no.  ${sc?.seed ?: "–"}")
                 appendLine("picture   ${artW} x ${artH} px  (detail ${"%.2f".format(detail)})")
                 appendLine("one frame ${"%.1f".format(averageCost())} ms  ·  ${"%.0f".format(measuredFps)} fps")

@@ -83,6 +83,28 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- the theme: the almanac's own island, or a MapleStory-inspired skin -->
+        <LinearLayout style="@style/Card">
+
+            <TextView style="@style/Section" android:text="@string/theme" />
+
+            <RadioGroup
+                android:id="@+id/theme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton
+                    android:id="@+id/theme_original"
+                    style="@style/Choice"
+                    android:text="@string/theme_original" />
+
+                <RadioButton
+                    android:id="@+id/theme_maple"
+                    style="@style/Choice"
+                    android:text="@string/theme_maple" />
+            </RadioGroup>
+        </LinearLayout>
+
         <!-- the picture's size, the frame rate, the length of a day -->
         <LinearLayout style="@style/Card">
 
