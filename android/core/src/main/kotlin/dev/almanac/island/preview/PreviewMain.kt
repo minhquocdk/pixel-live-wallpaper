@@ -7,7 +7,9 @@
 package dev.almanac.island.preview
 
 import dev.almanac.island.IslandScene
+import dev.almanac.island.BakedRiftScene
 import dev.almanac.island.RiftScene
+import dev.almanac.island.readPng
 import dev.almanac.island.Theme
 import java.io.File
 import java.io.FileOutputStream
@@ -103,7 +105,18 @@ private fun renderRift(args: Array<String>) {
     val t = arg(args, "--t", "0").toDouble()
     val frames = arg(args, "--frames", "1").toInt()
     val t0 = System.nanoTime()
-    val scene = RiftScene(phrase, w, h, detail, startTod = tod)
+    val baked = arg(args, "--baked", "")
+    val scene: dev.almanac.island.LiveScene = if (baked.isNotEmpty()) {
+        BakedRiftScene(
+            phrase,
+            readPng("$baked/background.png"),
+            readPng("$baked/masks.png"),
+            detail = detail,
+            startTod = tod,
+        )
+    } else {
+        RiftScene(phrase, w, h, detail, startTod = tod)
+    }
     val built = (System.nanoTime() - t0) / 1e6
     repeat((t * 30).toInt()) { scene.step(1.0 / 30.0) }
     var ms = 0.0
@@ -113,8 +126,8 @@ private fun renderRift(args: Array<String>) {
         scene.render()
         ms = (System.nanoTime() - t1) / 1e6
     }
-    writePng(out, w, h, scene.frame, scale)
-    println("rift $phrase ${w}x$h detail ${"%.2f".format(detail)} grown in ${"%.0f".format(built)} ms, frame ${"%.1f".format(ms)} ms -> $out")
+    writePng(out, scene.W, scene.H, scene.frame, scale)
+    println("rift $phrase ${scene.W}x${scene.H} detail ${"%.2f".format(detail)} grown in ${"%.0f".format(built)} ms, frame ${"%.1f".format(ms)} ms -> $out")
     if (args.contains("--debug")) println(scene.report().joinToString("\n"))
 }
 

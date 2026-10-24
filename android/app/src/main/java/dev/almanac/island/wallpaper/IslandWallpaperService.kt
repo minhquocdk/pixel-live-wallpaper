@@ -28,7 +28,9 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.almanac.island.IslandScene
 import dev.almanac.island.LiveScene
+import dev.almanac.island.BakedRiftScene
 import dev.almanac.island.RiftScene
+import dev.almanac.island.readPng
 import dev.almanac.island.Theme
 import kotlin.math.max
 import kotlin.math.min
@@ -225,10 +227,20 @@ class IslandWallpaperService : WallpaperService() {
                 val fresh: LiveScene? = try {
                     val th = Theme.fromId(themeId)
                     if (th == Theme.RIFT) {
-                        RiftScene(
-                            phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
-                            theme = th,
-                        )
+                        // a painted map, if the build carries one: the picture is the fixed layer, the engine adds
+                        // the water, the soldiers and the hour; otherwise the map is drawn from code alone
+                        val baked = bakedRift(w, h)
+                        if (baked != null) {
+                            BakedRiftScene(
+                                phrase = seedPhrase, background = baked.first, mask = baked.second,
+                                detail = d, dayLength = dayMinutes * 60.0, theme = th,
+                            )
+                        } else {
+                            RiftScene(
+                                phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
+                                theme = th,
+                            )
+                        }
                     } else {
                         IslandScene(
                             phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
@@ -279,6 +291,19 @@ class IslandWallpaperService : WallpaperService() {
          * screen; drawing it a pixel at a time would cost more than it shows, so the picture stays a few hundred pixels
          * across and is blitted up whole, which is also what pixel art wants.
          */
+        /** The baked background and its mask, if this build has them at this exact size. */
+        private fun bakedRift(w: Int, h: Int): Pair<dev.almanac.island.PngImage, dev.almanac.island.PngImage>? {
+            return try {
+                val assets = context.assets
+                fun load(name: String) = dev.almanac.island.readPng(assets.open("rift/$name").readBytes())
+                val bg = load("background.png")
+                val mk = load("masks.png")
+                if (bg.w != w || bg.h != h) null else bg to mk
+            } catch (t: Throwable) {
+                null
+            }
+        }
+
         private fun pictureSize(): Triple<Int, Int, Double> {
             val budget = when (quality) {
                 Prefs.QUALITY_LOW -> 90_000.0
