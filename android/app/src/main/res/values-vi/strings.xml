@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vietnamese. The island itself is not translated: it has no words in it. -->
+<resources>
+    <string name="app_name">Island</string>
+    <string name="wallpaper_label">Island</string>
+    <string name="wallpaper_description">Một hạt giống, một hòn đảo: ruộng bậc thang, một con sông, rừng, làng mạc và một ngày không bao giờ hết. Vẽ bằng code, từ hạt giống bạn đổi được.</string>
+
+    <string name="title">Island</string>
+    <string name="subtitle">Một hạt giống, một hòn đảo · vẽ bằng code</string>
+    <string name="seed_label">Hạt giống</string>
+    <string name="random">Ngẫu nhiên</string>
+    <string name="apply">Dùng hạt giống này</string>
+    <string name="set_wallpaper">Đặt làm hình nền động</string>
+    <string name="quality">Cỡ tranh</string>
+    <string name="fps">Số khung mỗi giây</string>
+    <string name="day">Một ngày dài</string>
+    <string name="status_title">Hình nền đang chạy</string>
+    <string name="hint">Nhấn đúp lên hình nền để mọc một hòn đảo mới.</string>
+    <string name="credits">Làm bằng procedural-almanac (MIT): mỗi kỹ thuật đều dẫn nguồn.</string>
+    <string name="quality_auto">Tự động (vừa với máy)</string>
+    <string name="quality_low">Nhỏ (nhẹ pin)</string>
+    <string name="quality_medium">Vừa</string>
+    <string name="quality_high">Lớn (máy khoẻ)</string>
+    <string name="fps_24">24 (êm)</string>
+    <string name="fps_30">30 (mặc định)</string>
+    <string name="fps_60">60 (mượt, tốn pin)</string>
+    <string name="day_5">5 phút</string>
+    <string name="day_10">10 phút</string>
+    <string name="day_20">20 phút</string>
+    <string name="day_40">40 phút</string>
+    <string name="not_set">chưa có · đặt hình nền một lần để xem ở đây</string>
+    <string name="applied">%1$s là hạt giống số %2$d</string>
+    <string name="no_picker">Launcher này không có trình chọn hình nền động: màn hình chính → hình nền → hình nền động.</string>
+</resources>
