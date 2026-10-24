@@ -169,6 +169,45 @@ class EngineTest {
     }
 
     @Test
+    fun `the maple theme grows the same island in its own colours`() {
+        val plain = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62)
+        val maple = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62, theme = Theme.MAPLE)
+        // the same land, the same villages and houses: a theme is a skin, not another island
+        assertEquals(plain.world.LEV.toList(), maple.world.LEV.toList())
+        assertEquals(plain.world.houses.size, maple.world.houses.size)
+        assertTrue(maple.world.villages.all { v -> v.styles.all { it == "mushroom" } })
+        assertTrue("maple should drop leaves", maple.mapleLeaves.isNotEmpty())
+        assertTrue("the original island has no maple leaves", plain.mapleLeaves.isEmpty())
+        plain.setTimeOfDay(0.35)
+        maple.setTimeOfDay(0.35)
+        plain.render()
+        maple.render()
+        assertNotEquals(plain.frame.toList(), maple.frame.toList())
+    }
+
+    @Test
+    fun `a running maple wallpaper draws the same picture as a fresh one`() {
+        val drawn = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62, theme = Theme.MAPLE)
+        drawn.setTimeOfDay(0.35)
+        repeat(150) {
+            drawn.step(1.0 / 30)
+            drawn.render()
+        }
+        val fresh = IslandScene("heron-bay-8", W = 160, H = 96, detail = 0.62, theme = Theme.MAPLE)
+        fresh.setTimeOfDay(0.35)
+        repeat(150) { fresh.step(1.0 / 30) }
+        fresh.render()
+        assertEquals(drawn.frame.toList(), fresh.frame.toList())
+    }
+
+    @Test
+    fun `a theme is read from its id, and an unknown id is the original`() {
+        assertEquals(Theme.MAPLE, Theme.fromId("maple"))
+        assertEquals(Theme.ORIGINAL, Theme.fromId("pokemon"))
+        assertEquals(Theme.ORIGINAL, Theme.fromId(null))
+    }
+
+    @Test
     fun `a seed rolls from two word lists`() {
         val phrase = seedWords(SeedLists.FIRST, SeedLists.SECOND) { 0.5 }
         assertTrue(phrase, Regex("^[a-z]+-[a-z]+-\\d{1,2}$").matches(phrase))

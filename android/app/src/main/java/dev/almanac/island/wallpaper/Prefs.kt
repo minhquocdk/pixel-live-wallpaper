@@ -12,6 +12,7 @@ object Prefs {
     private const val KEY_FPS = "fps"
     private const val KEY_DAY = "day"
     private const val KEY_STATUS = "status"
+    private const val KEY_THEME = "theme"
 
     const val QUALITY_AUTO = 0
     const val QUALITY_LOW = 1
@@ -28,13 +29,15 @@ object Prefs {
     fun fps(p: SharedPreferences): Int = p.getInt(KEY_FPS, 30)
     fun day(p: SharedPreferences): Int = p.getInt(KEY_DAY, 10)
     fun status(p: SharedPreferences): String = p.getString(KEY_STATUS, "") ?: ""
+    fun theme(p: SharedPreferences): String = p.getString(KEY_THEME, "original") ?: "original"
 
     fun setSeed(p: SharedPreferences, seed: String) = p.edit().putString(KEY_SEED, seed).apply()
     fun setQuality(p: SharedPreferences, quality: Int) = p.edit().putInt(KEY_QUALITY, quality).apply()
     fun setFps(p: SharedPreferences, fps: Int) = p.edit().putInt(KEY_FPS, fps).apply()
     fun setDay(p: SharedPreferences, minutes: Int) = p.edit().putInt(KEY_DAY, minutes).apply()
     fun setStatus(p: SharedPreferences, status: String) = p.edit().putString(KEY_STATUS, status).apply()
+    fun setTheme(p: SharedPreferences, theme: String) = p.edit().putString(KEY_THEME, theme).apply()
 
     /** Every key that means "build the island again". */
-    val RESTART_KEYS = setOf(KEY_SEED, KEY_QUALITY, KEY_DAY)
+    val RESTART_KEYS = setOf(KEY_SEED, KEY_QUALITY, KEY_DAY, KEY_THEME)
 }

@@ -15,6 +15,17 @@ không phải app mở lên rồi vẽ vào một canvas.
 Cùng một hạt giống cho ra **cùng một hòn đảo** như bản chạy trên trình duyệt: hạt giống `heron-bay-8` sinh ra
 13 nhà, 190 cây, 12 cây dừa, 34 khóm sậy, 11 đèn lồng, 3 con đường và ngọn hải đăng ở (362, 131) — giống từng con số.
 
+### Giao diện "Làng Nấm Maple"
+
+![Giao diện Maple ban ngày: nhà nấm, rừng lá phong, slime](docs/maple-day.png)
+
+![Giao diện Maple ban đêm: cửa sổ nhà nấm sáng đèn](docs/maple-night.png)
+
+Cùng hòn đảo, cùng địa hình, cùng hạt giống — chỉ đổi lớp "da": **nhà nấm** kiểu Henesys (mũ tròn chấm trắng, thân
+kem, cửa tròn, cửa sổ sáng khi tối), **rừng lá phong** đỏ–cam–vàng, **slime** nảy tưng tưng thay cho đàn hươu,
+**lá phong rơi** lững lờ, người đi đường đội mũ nấm, và một tông màu ấm, rực hơn. Chọn trong app ở mục **Giao diện**.
+Mọi sprite đều tự vẽ bằng code (lấy cảm hứng từ MapleStory, không dùng asset gốc của Nexon).
+
 ---
 
 ## Lấy APK (GitHub build hộ)
@@ -50,6 +61,7 @@ Mỗi APK được ký bằng khoá debug nên cài thẳng lên máy là chạy
 
 | Thứ | Làm gì |
 | --- | --- |
+| **Giao diện** | *Đảo gốc* hoặc *Làng Nấm Maple*. Đổi là đảo vẽ lại ngay, địa hình giữ nguyên. |
 | **Hạt giống** | Gõ bất cứ gì: `heron-bay-8`, `mua-he-3`, `42`. Số thì dùng thẳng số đó, chữ thì băm thành số. |
 | **Ngẫu nhiên** | Bấm là ra hạt giống mới (một từ đầu + một từ cuối + số, ví dụ `amber-vale-7`) và đảo mọc lại ngay. |
 | **Nhấn đúp lên hình nền** | Đổi sang một hạt giống ngẫu nhiên khác mà không cần mở app. |
@@ -87,8 +99,9 @@ android/
     src/main/kotlin/dev/almanac/island/
       Maths, Rng, Noise, Colour, Palette, Water, Shapes, Sprite,
       World, Relief, Light, IslandScene      ← engine, 1:1 với scene.js
+      Theme.kt                               ← ORIGINAL / MAPLE: chọn bảng màu, nhà, cây, thú
       preview/PreviewMain.kt                 ← vẽ ảnh PNG trên laptop/CI
-    src/test/kotlin/dev/almanac/island/EngineTest.kt   ← 13 bài: so khớp với bản JS, và khung ổn định
+    src/test/kotlin/dev/almanac/island/EngineTest.kt   ← 16 bài: so khớp với bản JS, và khung ổn định
   app/
     src/main/java/dev/almanac/island/wallpaper/
       IslandWallpaperService.kt   ← WallpaperService: vòng vẽ, đo tốc độ, nhấn đúp, nghe đổi cài đặt
@@ -110,6 +123,8 @@ cd android
 ./gradlew :core:test                      # 13 bài kiểm tra engine
 ./gradlew :app:assembleDebug              # ra app/build/outputs/apk/debug/*.apk
 ./gradlew :core:preview --args="--seed heron-bay-8 --t 13.05 --fixed-day --tod 0.3 --out island.png --scale 2"
+# giao diện Maple
+./gradlew :core:preview --args="--seed heron-bay-8 --theme maple --t 13 --fixed-day --tod 0.3 --out maple.png --scale 3"
 ```
 
 `--tod` là giờ trong ngày (0..1: 0,3 là buổi sáng, 0,8 là đêm), `--scale 2` phóng to ảnh cho dễ nhìn.

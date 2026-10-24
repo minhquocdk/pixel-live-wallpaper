@@ -70,6 +70,7 @@ class World(
     val H: Int = ArtHeight,
     val detail: Double = 1.0,
     val palette: Palette = Palette(),
+    val theme: Theme = palette.theme,
 ) {
     companion object {
         const val ArtWidth = 384
@@ -358,8 +359,14 @@ class World(
         val harbour = sites.filter { it.level == 1 }.minByOrNull { dBeach[it.i].toInt() } ?: sites[0]
         val hill = sites.filter { it.level >= 2 && far(it, harbour) > 110 * detail }
             .minByOrNull { abs(dToRiv[it.i] - 75 * detail) } ?: sites.maxByOrNull { far(it, harbour) }!!
-        villages.add(Village(harbour.x, harbour.y, harbour.level, 0, "harbour", listOf("thatch", "plank"), listOf("#caa35c", "#8d6b4b"), 8))
-        villages.add(Village(hill.x, hill.y, hill.level, 1, "hill", listOf("redtile", "tile"), listOf("#bb5840", "#5c719c"), 8))
+        if (theme == Theme.MAPLE) {
+            // Henesys mushroom village + hill maple cottages
+            villages.add(Village(harbour.x, harbour.y, harbour.level, 0, "henesys", listOf("mushroom", "mushroom"), listOf("#e85d4c", "#5bb0e0"), 8))
+            villages.add(Village(hill.x, hill.y, hill.level, 1, "ellinia", listOf("mushroom", "mushroom"), listOf("#f5a623", "#d93a2b"), 8))
+        } else {
+            villages.add(Village(harbour.x, harbour.y, harbour.level, 0, "harbour", listOf("thatch", "plank"), listOf("#caa35c", "#8d6b4b"), 8))
+            villages.add(Village(hill.x, hill.y, hill.level, 1, "hill", listOf("redtile", "tile"), listOf("#bb5840", "#5c719c"), 8))
+        }
 
         val d = detail
         villages.forEach { v ->
@@ -675,6 +682,10 @@ class World(
                 val size = 0.72 + indexRandom(id, seed + 6) * 0.45
                 val lean = Math.round((indexRandom(id, seed + 7) - 0.5) * 2).toInt()
                 val leaf = when {
+                    theme == Theme.MAPLE && blossom -> palette.leaves["maple"]!!
+                    theme == Theme.MAPLE && cone -> palette.leaves["pine"]!!
+                    theme == Theme.MAPLE && l <= 2 -> palette.leaves["mapleGreen"]!!
+                    theme == Theme.MAPLE -> palette.leaves["maple"]!!
                     blossom -> palette.leaves["blossom"]!!
                     cone -> palette.leaves["pine"]!!
                     l <= 2 -> palette.leaves["meadow"]!!
@@ -789,9 +800,11 @@ class World(
         val r = Surface(w, h)
         val rnd = SeededRandom(seed + 77)
         barkTrunk(r, ax.toDouble(), (ay - 16 * d), ay, (3 * d).roundToInt(), palette.bark, 0)
+        val summitLeaf = if (theme == Theme.MAPLE) palette.leaves["maple"]!! else palette.leaves["blossom"]!!
+        val summitBloom = if (theme == Theme.MAPLE) palette.hex("#ffe9a8") else palette.hex("#fff0f6")
         val crown = leafCrown(
-            r, rnd, ax.toDouble(), ay - (17 * d), (12 * d), (9 * d), palette.leaves["blossom"]!!,
-            bloom = palette.hex("#fff0f6"), bloomEvery = max(3, (6 * d).roundToInt()), bloomSeed = seed,
+            r, rnd, ax.toDouble(), ay - (17 * d), (12 * d), (9 * d), summitLeaf,
+            bloom = summitBloom, bloomEvery = max(3, (6 * d).roundToInt()), bloomSeed = seed,
         )
         for ((k, c) in crown.withIndex()) {
             if (k % 2 != 0) continue
@@ -805,6 +818,10 @@ class World(
 
     /** A house: its roof seen from above, and its front wall below, with a door and windows that light after dark. */
     private fun buildHouse(h: House): Sprite {
+        // MapleStory mushroom houses: bright dome caps with white spots — Henesys style
+        if (theme == Theme.MAPLE && h.style.startsWith("mushroom")) {
+            return buildMushroomHouse(h)
+        }
         val d = detail
         val w = h.w
         val dd = h.depth
@@ -878,6 +895,104 @@ class World(
         sp.roofTop = plan.yN - ay
         sp.chimneyX = plan.x1 - (3.5 * d).roundToInt() - ax
         sp.chimneyY = plan.yN + 1 - ay
+        return sp
+    }
+
+    /**
+     * Henesys-style mushroom house (inspired by MapleStory, drawn from scratch): a cream stem with a round door and a
+     * window that lights after dark, under a domed cap with white spots, a lit crown and a shaded rim.
+     */
+    private fun buildMushroomHouse(h: House): Sprite {
+        val d = detail
+        val w = h.w
+        val pad = (5 * d).roundToInt() + 2
+        val stemH = h.hw + (3 * d).roundToInt()
+        val capRx = w / 2.0 + 2.2 * d
+        val capRy = h.depth * 0.42 + 3.2 * d
+        val top = (2 * capRy).roundToInt() + 3
+        val rw = w + 2 * pad
+        val rh = top + stemH + (3 * d).roundToInt()
+        val r = Surface(rw, rh)
+        val ax = pad + w / 2
+        val ay = top + stemH
+        val by = ay - stemH // where the stem meets the cap
+        // the stem: a little narrower than the house's footprint, lit on the left, shaded on the right
+        val sx0 = pad + max(1, (1 * d).roundToInt())
+        val sx1 = pad + w - 1 - max(1, (1 * d).roundToInt())
+        val sw = sx1 - sx0 + 1
+        val doorW = max(2, (2.4 * d).roundToInt())
+        val doorX = (sx0 + clampInt(h.door, 1, max(1, sw - doorW - 1))).coerceAtMost(sx1 - doorW)
+        val doorTop = ay - max(3, (3.6 * d).roundToInt())
+        val winR = max(1.0, 1.1 * d)
+        val winX = if (doorX - sx0 > sx1 - doorX - doorW) (sx0 + doorX) / 2.0 else (doorX + doorW + sx1) / 2.0
+        val winY = by + 2.6 * d + 1
+        for (y in by..ay) {
+            for (x in sx0..sx1) {
+                var c = when {
+                    x == sx0 -> palette.tone(h.wall, 1)
+                    x >= sx1 - max(0, (0.6 * d).roundToInt()) -> palette.tone(h.wall, -1)
+                    else -> h.wall
+                }
+                if (y <= by + max(1, (1 * d).roundToInt())) c = palette.tone(h.wall, -2) // the cap's shadow
+                val inDoor = x >= doorX && x < doorX + doorW && y >= doorTop
+                val archCut = y == doorTop && (x == doorX || x == doorX + doorW - 1) && doorW > 2
+                if (inDoor && !archCut) c = if (x == doorX) palette.tone(palette.door, -1) else palette.door
+                val dx = x - winX
+                val dy = y - winY
+                if (!inDoor && dx * dx + dy * dy <= winR * winR + 0.3) c = marker(Marks.WIN, h.id)
+                r.px[y * rw + x] = c
+            }
+        }
+        // the cap: a dome whose underside sits on the stem's top
+        val cx = ax - 0.5
+        val cy = by + 1 - capRy
+        val capC = h.roof
+        ellipseRows(cx, cy, capRx, capRy) { y, xa, xb ->
+            if (y < 0 || y >= rh) return@ellipseRows
+            for (x in max(0, xa)..min(rw - 1, xb)) {
+                val u = (x - cx) / capRx
+                val v = (y - cy) / capRy
+                val k = when {
+                    v > 0.55 -> -1 // the rim, in its own shade
+                    (u + 0.35) * (u + 0.35) + (v + 0.45) * (v + 0.45) < 0.12 -> 1 // the lit crown, upper left
+                    u > 0.62 -> -1
+                    else -> 0
+                }
+                r.px[y * rw + x] = palette.tone(capC, k)
+            }
+        }
+        // the gills: a dark line where the rim turns under
+        val gy = (cy + capRy).roundToInt()
+        if (gy in 0 until rh) for (x in (cx - capRx * 0.82).roundToInt()..(cx + capRx * 0.82).roundToInt()) {
+            if (x in 0 until rw && r.px[gy * rw + x] != 0) r.px[gy * rw + x] = palette.tone(capC, -2)
+        }
+        // white spots, the same for a house every time
+        val spot = SeededRandom(h.id * 997 + seed)
+        val spots = 3 + (w / (6 * d)).toInt().coerceAtMost(3)
+        for (k in 0 until spots) {
+            val a = (k + spot.range(0.0, 0.6)) / spots
+            val sx = cx + (a - 0.5) * capRx * 1.35
+            val sy = cy + spot.range(-0.55, 0.15) * capRy
+            val sr = spot.range(0.8, 1.5) * d
+            ellipseRows(sx, sy, sr, sr * 0.85) { y, xa, xb ->
+                for (x in xa..xb) {
+                    if (x in 0 until rw && y in 0 until rh && r.px[y * rw + x] != 0) r.px[y * rw + x] = palette.mushSpot
+                }
+            }
+        }
+        // a stubby chimney through the cap on some houses
+        if (h.chimney) {
+            val chX = (cx + capRx * 0.45).roundToInt()
+            val chTop = (cy - capRy * 0.95).roundToInt()
+            for (yy in chTop..chTop + (2.5 * d).roundToInt()) for (xx in chX..chX + max(1, d.roundToInt())) {
+                if (xx in 0 until rw && yy in 0 until rh) r.px[yy * rw + xx] = if (yy == chTop) palette.tone(palette.stone, 1) else palette.stone
+            }
+        }
+        outlinePass(r, palette.ink)
+        val sp = Sprite(rw, rh, r.px, ax, ay)
+        sp.roofTop = (cy - capRy).roundToInt() - ay
+        sp.chimneyX = (cx + capRx * 0.45).roundToInt() - ax
+        sp.chimneyY = (cy - capRy * 0.95).roundToInt() - ay
         return sp
     }
 

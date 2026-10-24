@@ -31,4 +31,7 @@
     <string name="not_set">chưa có · đặt hình nền một lần để xem ở đây</string>
     <string name="applied">%1$s là hạt giống số %2$d</string>
     <string name="no_picker">Launcher này không có trình chọn hình nền động: màn hình chính → hình nền → hình nền động.</string>
+    <string name="theme">Giao diện</string>
+    <string name="theme_original">Đảo gốc</string>
+    <string name="theme_maple">Làng Nấm Maple (nhà nấm, lá phong, slime)</string>
 </resources>

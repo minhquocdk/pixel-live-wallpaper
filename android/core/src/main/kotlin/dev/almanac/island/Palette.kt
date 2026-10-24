@@ -5,8 +5,11 @@ package dev.almanac.island
 
 import kotlin.math.min
 
-/** The whole palette passes through one grade, as a film's does. */
+/** The whole palette passes through one grade, as a film's does. Original almanac grade. */
 val LOOK: Grade = Grade(sat = 1.08, warm = 0.05, contrast = 1.04)
+
+/** MapleStory-inspired warmer, more saturated grade: Henesys pastel spring. */
+val LOOK_MAPLE: Grade = Grade(sat = 1.22, warm = 0.10, contrast = 1.08)
 
 /** A marker pixel: alpha 0xFE, so it never passes for a colour; it says a light lights up after dark, and whose. */
 fun marker(type: Int, id: Int = 0): Int = (0xFE shl 24) or (type shl 16) or (id and 0xFFFF)
@@ -24,12 +27,13 @@ object Marks {
 /** The three lightness tables of the hour (see Light.hourTables). */
 class HourTables(val r: IntArray, val g: IntArray, val b: IntArray)
 
-/** Everything the island is coloured with. Built once per scene. */
-class Palette {
+/** Everything the island is coloured with. Built once per scene. Theme selects grade + accent colours. */
+class Palette(val theme: Theme = Theme.ORIGINAL) {
     private val ramps = HashMap<Int, IntArray>()
+    private val look: Grade = if (theme == Theme.MAPLE) LOOK_MAPLE else LOOK
 
     /** A "#rrggbb" colour through the film grade the whole palette passes through. */
-    fun hex(s: String): Int = gradeColour(dev.almanac.island.hex(s), LOOK)
+    fun hex(s: String): Int = gradeColour(dev.almanac.island.hex(s), look)
 
     /** A colour's ramp, two steps darker to two lighter, each step turning in hue as a pixel artist's does. */
     fun tone(c: Int, k: Int): Int {
@@ -40,21 +44,24 @@ class Palette {
         return r[(k + 2).coerceIn(0, 4)]
     }
 
-    val sand = hex("#ead9a2")
-    val wetSand = hex("#d3bd86")
-    val lush = hex("#74c25a")
-    val dry = hex("#a7c463")
-    val wood1 = hex("#58a44c")
-    val wood2 = hex("#468f48")
-    val heath = hex("#86a05c")
-    val moor = hex("#a08f6a")
-    val rock = hex("#a39c8e")
+    val isMaple: Boolean get() = theme == Theme.MAPLE
+
+    // Base terrain — maple is a bit brighter/warmer
+    val sand = hex(if (isMaple) "#f2e0a8" else "#ead9a2")
+    val wetSand = hex(if (isMaple) "#e0c98e" else "#d3bd86")
+    val lush = hex(if (isMaple) "#7ec84a" else "#74c25a")
+    val dry = hex(if (isMaple) "#b0d95c" else "#a7c463")
+    val wood1 = hex(if (isMaple) "#5eb84c" else "#58a44c")
+    val wood2 = hex(if (isMaple) "#4ca03e" else "#468f48")
+    val heath = hex(if (isMaple) "#8fb85a" else "#86a05c")
+    val moor = hex(if (isMaple) "#ad9a6e" else "#a08f6a")
+    val rock = hex(if (isMaple) "#a8a19a" else "#a39c8e")
     val snow = hex("#e9ece6")
-    val earth = hex("#a8774f")
-    val stone = hex("#8f8c87")
-    val dirt = hex("#cfac72")
-    val plank = hex("#a9763f")
-    val bank = hex("#9c7c4e")
+    val earth = hex(if (isMaple) "#bc8a55" else "#a8774f")
+    val stone = hex(if (isMaple) "#9a9590" else "#8f8c87")
+    val dirt = hex(if (isMaple) "#d8ac6e" else "#cfac72")
+    val plank = hex(if (isMaple) "#b88a44" else "#a9763f")
+    val bank = hex(if (isMaple) "#a88a52" else "#9c7c4e")
     val wheat = hex("#e2c25c")
     val greens = hex("#6aab4b")
     val cabbage = hex("#93c979")
@@ -65,9 +72,10 @@ class Palette {
     val bark = listOf(hex("#5b3b26"), hex("#87593a"))
     val inkTree = hex("#1e2b22")
     val ink = hex("#24191b")
-    val plaster = hex("#ece0c6")
-    val timber = hex("#c9996a")
-    val door = hex("#5d3b25")
+    // Maple houses: cream + honey wood, perfect for mushroom huts
+    val plaster = hex(if (isMaple) "#fff4d6" else "#ece0c6")
+    val timber = hex(if (isMaple) "#e0a86a" else "#c9996a")
+    val door = hex(if (isMaple) "#6b3a22" else "#5d3b25")
     val glass = hex("#33496c")
     val lit = hex("#ffd98a")
     val lamp = hex("#fff0b0")
@@ -92,6 +100,20 @@ class Palette {
     val towerRed = hex("#c8473c")
     val tip = hex("#ffc2e0")
     val tipBright = hex("#fff4fb")
+
+    // Maple-specific accents
+    val mushCapRed = hex("#e85d4c")
+    val mushCapBlue = hex("#5bb0e0")
+    val mushCapPink = hex("#f0a0c0")
+    val mushCapOrange = hex("#f5a623")
+    val mushStem = hex("#fef3d8")
+    val mushSpot = hex("#ffffff")
+    val slimeGreen = hex("#7ed957")
+    val slimeBlue = hex("#6ec8e8")
+    val slimeOrange = hex("#ff8c42")
+    val mapleRed = hex("#d93a2b")
+    val mapleOrange = hex("#f5a623")
+    val mapleYellow = hex("#f8e71c")
 
     val P = WaterPalette(
         LV = listOf("#74cfdc", "#5ec0d7", "#4caecf", "#3e9bc5", "#3489ba", "#2c78ad", "#25679f").map { hex(it) }.toIntArray(),
@@ -129,9 +151,15 @@ class Palette {
         "wood" to listOf("#24532f", "#3b7d3c", "#5aa148", "#86c767").map { hex(it) },
         "pine" to listOf("#1d4433", "#2e6444", "#468556", "#6aa874").map { hex(it) },
         "blossom" to listOf("#7a4a6a", "#c9739c", "#f0a3c3", "#ffd6e6").map { hex(it) },
+        // Maple autumn palette — vivid Henesys forest
+        "maple" to listOf("#8b1a1a", "#d93a2b", "#f5a623", "#f8e71c").map { hex(it) },
+        "mapleGreen" to listOf("#2f6b35", "#4d9a43", "#78c25a", "#a8df7c").map { hex(it) },
     )
 
-    val crops = intArrayOf(wheat, greens, cabbage, paddy, fallow, 0, wheat, 0)
+    // For maple, fields shift to more autumnal crops (keep mechanism, change tints)
+    val crops: IntArray = if (isMaple) {
+        intArrayOf(wheat, greens, cabbage, paddy, fallow, 0, hex("#f2a65a"), 0)
+    } else intArrayOf(wheat, greens, cabbage, paddy, fallow, 0, wheat, 0)
 
     /** Every wall faces south, toward us: the light comes from the upper left, a little toward us. */
     private val lightDir = doubleArrayOf(-0.45, 0.89)

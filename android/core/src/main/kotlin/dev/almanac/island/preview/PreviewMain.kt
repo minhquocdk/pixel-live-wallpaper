@@ -3,6 +3,7 @@
 //
 //   PreviewMain --seed heron-bay-8 --t 13 --out /tmp/island.png
 //   PreviewMain --seed amber-vale-7 --strip 0,40,80 --out /tmp/strip.png
+//   PreviewMain --seed heron-bay-8 --theme maple --out /tmp/maple.png
 package dev.almanac.island.preview
 
 import dev.almanac.island.IslandScene
@@ -97,7 +98,8 @@ fun main(args: Array<String>) {
     val fixedDay = args.contains("--fixed-day")
     val fps = 30.0
     val t0 = System.nanoTime()
-    val scene = IslandScene(phrase, w, h, detail)
+    val theme = dev.almanac.island.Theme.fromId(arg(args, "--theme", "original"))
+    val scene = IslandScene(phrase, w, h, detail, theme = theme)
     val built = (System.nanoTime() - t0) / 1e6
     if (args.contains("--noise")) {
         for ((x, y, sd, oct) in listOf(

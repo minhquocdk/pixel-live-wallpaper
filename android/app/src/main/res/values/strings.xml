@@ -30,4 +30,7 @@
     <string name="not_set">not set yet · set the wallpaper once to see it here</string>
     <string name="applied">%1$s is seed %2$d</string>
     <string name="no_picker">This launcher has no live wallpaper picker: home screen → wallpaper → live wallpaper.</string>
+    <string name="theme">Theme</string>
+    <string name="theme_original">Original island</string>
+    <string name="theme_maple">Maple Village (mushroom houses, maple leaves, slimes)</string>
 </resources>

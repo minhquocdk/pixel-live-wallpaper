@@ -54,6 +54,9 @@ class Lantern(var x: Double, var y: Double, var sway: Double, val seed: Int, var
 
 class Fly(var x: Double, var y: Double, val seed: Int, var age: Double)
 
+/** Maplestory leaf particle drifting down from the trees */
+class MapleLeaf(var x: Double, var y: Double, var vx: Double, var vy: Double, val col: Int, var rot: Double = 0.0)
+
 /** The island, growing and living, drawn a frame at a time. */
 class IslandScene(
     val phrase: String = World.DefaultPhrase,
@@ -61,9 +64,10 @@ class IslandScene(
     val H: Int = World.ArtHeight,
     val detail: Double = 1.0,
     val dayLength: Double = 300.0,
+    val theme: Theme = Theme.ORIGINAL,
 ) {
-    val palette = Palette()
-    val world = World(phrase, W, H, detail, palette)
+    val palette = Palette(theme)
+    val world = World(phrase, W, H, detail, palette, theme)
     val seed: Int get() = world.seed
 
     val frame = IntArray(W * H)
@@ -107,6 +111,8 @@ class IslandScene(
     val hens = ArrayList<Hen>()
     val lanterns = ArrayList<Lantern>()
     val flies = ArrayList<Fly>()
+    val mapleLeaves = ArrayList<MapleLeaf>() // only for MAPLE theme
+    private var leafRespawns = 0
     private var boatAngle = 0.0
     private var boatX = 0.0
     private var boatY = 0.0
@@ -304,23 +310,27 @@ class IslandScene(
         val meadow = world.meadow
         for (k in 0 until 4) {
             val hue = r.range(24.0, 36.0)
+            // MapleStory slimes: green/blue/orange bobbing slimes — cute, not scary
+            val isMaple = theme == Theme.MAPLE
+            val slimeCols = listOf(palette.slimeGreen, palette.slimeBlue, palette.slimeOrange, palette.mushCapRed)
             deer.add(
                 Deer(
                     x = meadow.x + r.range(-10.0, 10.0) * d,
                     y = meadow.y + r.range(-6.0, 6.0) * d,
                     vx = r.range(-1.0, 1.0), vy = r.range(-1.0, 1.0),
-                    coat = hslToRgb(hue, r.range(0.35, 0.5), r.range(0.4, 0.5)),
-                    belly = hslToRgb(hue, 0.25, 0.62),
-                    size = r.range(0.85, 1.1), antlers = r.chance(0.4), seed = k,
+                    coat = if (isMaple) slimeCols[k % slimeCols.size] else hslToRgb(hue, r.range(0.35, 0.5), r.range(0.4, 0.5)),
+                    belly = if (isMaple) palette.tone(slimeCols[k % slimeCols.size], 1) else hslToRgb(hue, 0.25, 0.62),
+                    size = if (isMaple) r.range(0.75, 0.95) else r.range(0.85, 1.1), antlers = if (isMaple) false else r.chance(0.4), seed = k,
                 ),
             )
         }
-        // a fawn after its mother
+        // a fawn after its mother — MapleStory: baby slime
         deer.add(
             Deer(
                 x = meadow.x + r.range(-8.0, 8.0) * d, y = meadow.y + r.range(-5.0, 5.0) * d,
                 vx = 0.5, vy = 0.3,
-                coat = hslToRgb(r.range(24.0, 36.0), 0.4, 0.55), belly = hslToRgb(0.0, 0.0, 0.75),
+                coat = if (theme == Theme.MAPLE) palette.slimeGreen else hslToRgb(r.range(24.0, 36.0), 0.4, 0.55),
+                belly = if (theme == Theme.MAPLE) palette.hex("#eaffd5") else hslToRgb(0.0, 0.0, 0.75),
                 size = 0.62, antlers = false, seed = 9,
             ),
         )
@@ -351,6 +361,23 @@ class IslandScene(
         for (k in 0 until 6) {
             val meadow2 = world.meadow
             flies.add(Fly(meadow2.x + r.range(-30.0, 30.0), meadow2.y + r.range(-20.0, 20.0), seed + k, 0.0))
+        }
+        // MapleStory: falling maple leaves drifting from the autumn canopy
+        if (theme == Theme.MAPLE) {
+            val leafCols = listOf(palette.mapleRed, palette.mapleOrange, palette.mapleYellow)
+            for (k in 0 until (18 * d).toInt()) {
+                val t = if (world.trees.isEmpty()) null else world.trees[k % world.trees.size]
+                val baseX = t?.x?.toDouble() ?: (W * 0.5)
+                val baseY = t?.y?.toDouble() ?: (world.GH * 0.5)
+                mapleLeaves.add(MapleLeaf(
+                    x = baseX + r.range(-20.0, 20.0) * d,
+                    y = baseY + r.range(-10.0, 10.0) * d,
+                    vx = r.range(-2.0, 2.0),
+                    vy = r.range(4.0, 10.0),
+                    col = leafCols[r.range(0, leafCols.size - 1)],
+                    rot = r.range(0.0, 6.28)
+                ))
+            }
         }
         val centre = if (world.pierX >= 0) {
             doubleArrayOf(world.pierX + world.pierDirX * 16 * d, world.pierY + world.pierDirY * 16 * d)
@@ -452,7 +479,8 @@ class IslandScene(
                 val dx = de.x - o.x
                 val dy = de.y - o.y
                 val d2 = dx * dx + dy * dy
-                if (d2 in 0.01..(7 * d) * (7 * d)) {
+                val gap = if (theme == Theme.MAPLE) 11 * d else 7 * d // slimes are rounder: keep them apart
+                if (d2 in 0.01..gap * gap) {
                     ax += dx * 8.0 / (d2 + 1)
                     ay += dy * 8.0 / (d2 + 1)
                 }
@@ -589,6 +617,22 @@ class IslandScene(
             f.x += sin(clock * 1.3 + f.seed) * 5 * dt * d
             f.y += cos(clock * 1.1 + f.seed * 1.7) * 4 * dt * d
         }
+        // maple leaves drifting down with a gentle sway; one that leaves the picture starts again under a crown
+        if (theme == Theme.MAPLE && world.trees.isNotEmpty()) {
+            mapleLeaves.forEachIndexed { k, leaf ->
+                leaf.x += (leaf.vx + sin(clock * 0.8 + leaf.rot) * 9 * d) * dt
+                leaf.y += leaf.vy * dt
+                leaf.rot += dt * 1.2
+                if (leaf.y > H + 8 || leaf.x < -12 || leaf.x > W + 12) {
+                    leafRespawns++
+                    val n = leafRespawns * 31 + k
+                    val t = world.trees[(indexRandom(n, seed + 61) * world.trees.size).toInt().coerceIn(0, world.trees.size - 1)]
+                    leaf.x = t.x + (indexRandom(n, seed + 62) - 0.5) * 16 * d
+                    leaf.y = t.y - max(0, world.lev(t.x, t.y)) * world.lift - 10 * d
+                    leaf.vx = (indexRandom(n, seed + 63) - 0.5) * 4
+                }
+            }
+        }
         boatAngle = clock * 0.22
     }
 
@@ -719,6 +763,8 @@ class IslandScene(
         }
         items.sortBy { it.z }
         for (it in items) stamp(it)
+        // Maple leaves drifting over the island — soft, not covering houses
+        if (theme == Theme.MAPLE) drawMapleLeaves()
         // under the water: the whale's shadow (a darkening of the sea it swims through), and the fish
         if (whaleShape.size == frame.size) {
             java.util.Arrays.fill(whaleShape, false)
@@ -853,6 +899,21 @@ class IslandScene(
         }
     }
 
+    private fun drawMapleLeaves() {
+        for (leaf in mapleLeaves) {
+            val x = leaf.x.roundToInt()
+            val y = leaf.y.roundToInt()
+            if (x < -2 || x >= W + 2 || y < -2 || y >= H + 2) continue
+            // gentle rotation by picking one of two pixel patterns
+            val rot = (leaf.rot % (2 * PI))
+            val dx = if (rot < PI) 1 else -1
+            // 3-pixel leaf
+            if (x in 0 until W && y in 0 until H) frame[y * W + x] = leaf.col
+            if (x + dx in 0 until W && y in 0 until H) frame[y * W + x + dx] = palette.tone(leaf.col, -1)
+            if (x in 0 until W && y + 1 in 0 until H) frame[(y + 1) * W + x] = palette.tone(leaf.col, 1)
+        }
+    }
+
     private fun drawReed(item: Item) {
         val rd = item.reed ?: return
         val sway = sin(clock * 2.6 + rd.id) * 1.5 * detail
@@ -974,10 +1035,17 @@ class IslandScene(
         r.px[6 * 9 + 6] = palette.tone(p.shirt, -1)
         for (y in 2..4) for (x in 3..5) r.px[y * 9 + x] = if (y == 2) p.hair else p.skin
         if (p.hat) {
-            for (x in 2..6) r.px[2 * 9 + x] = palette.hex("#e0c068")
-            r.px[1 * 9 + 4] = palette.hex("#c9a24a")
-            r.px[1 * 9 + 3] = palette.hex("#e0c068")
-            r.px[1 * 9 + 5] = palette.hex("#e0c068")
+            if (theme == Theme.MAPLE) {
+                // tiny mushroom cap hat — Henesys beginner
+                fillEllipse(r, 4.0, 1.8, 3.4, 2.0, palette.mushCapRed)
+                r.px[1 * 9 + 3] = palette.mushSpot
+                r.px[1 * 9 + 5] = palette.mushSpot
+            } else {
+                for (x in 2..6) r.px[2 * 9 + x] = palette.hex("#e0c068")
+                r.px[1 * 9 + 4] = palette.hex("#c9a24a")
+                r.px[1 * 9 + 3] = palette.hex("#e0c068")
+                r.px[1 * 9 + 5] = palette.hex("#e0c068")
+            }
         }
         outlinePass(r, palette.ink)
         return Sprite(r.w, r.h, r.px, ax, ay)
@@ -985,8 +1053,53 @@ class IslandScene(
 
     private val deerCache = HashMap<Int, Sprite>()
     private fun deerSprite(de: Deer, phase: Double, grazing: Boolean): Sprite {
-        val key = (de.seed shl 6) or ((Math.round(phase / 6.283 * 8).toInt() and 7) shl 1) or (if (grazing) 1 else 0)
-        return deerCache.getOrPut(key) { upscale(buildDeer(de, phase, grazing), detail) }
+        // Maple slimes hop; cache with theme + phase
+        val baseKey = (de.seed shl 6) or ((Math.round(phase / 6.283 * 8).toInt() and 7) shl 1) or (if (grazing) 1 else 0)
+        val key = if (theme == Theme.MAPLE) baseKey or (1 shl 20) else baseKey
+        return deerCache.getOrPut(key) {
+            val raw = if (theme == Theme.MAPLE) buildSlime(de, phase) else buildDeer(de, phase, grazing)
+            upscale(raw, detail)
+        }
+    }
+
+    /** MapleStory slime — round, bouncy, two eyes, tiny smile. Pure original art, Henesys vibe. */
+    private fun buildSlime(de: Deer, phase: Double): Sprite {
+        val r = Surface(14, 12)
+        val ax = 7
+        val ay = 10
+        val s = de.size
+        // hop: slimes squish and stretch
+        val hop = max(0.0, sin(phase * 2.0)) * 1.6
+        val squishX = 1.0 + hop * 0.08
+        val squishY = 1.0 - hop * 0.10
+        val bodyRx = 4.2 * s * squishX
+        val bodyRy = 3.2 * s * squishY
+        val bodyY = 6.5 - hop * 0.7
+        // body
+        fillEllipse(r, 7.0, bodyY, bodyRx, bodyRy, de.coat)
+        // belly highlight
+        fillEllipse(r, 7.0, bodyY + 0.8, bodyRx * 0.62, bodyRy * 0.55, palette.tone(de.coat, 1))
+        // bottom squish contact
+        fillEllipse(r, 7.0, 9.0 - hop * 0.3, bodyRx * 0.85, 1.0, palette.tone(de.coat, -1))
+        // eyes
+        val eyeY = (bodyY - 1.0).roundToInt()
+        for ((dx, isLeft) in listOf(-2 to true, 2 to false)) {
+            val ex = (7 + dx).coerceIn(1, 12)
+            r.px[eyeY * 14 + ex] = palette.ink
+            r.px[eyeY * 14 + ex] = if (isLeft) palette.ink else palette.ink
+            // white glint
+            if (eyeY - 1 >= 0) r.px[(eyeY - 1) * 14 + ex] = palette.hex("#ffffff")
+            // blush
+            val bx = ex + (if (isLeft) -2 else 2)
+            if (bx in 0..13 && eyeY + 1 < 12) r.px[(eyeY + 1) * 14 + bx] = palette.hex("#ff8fb1")
+        }
+        // smile
+        val mouthY = (bodyY + 0.6).roundToInt()
+        r.px[mouthY * 14 + 7] = palette.ink
+        if (7 - 1 >= 0) r.px[mouthY * 14 + 6] = palette.ink
+        if (7 + 1 <= 13) r.px[mouthY * 14 + 8] = palette.ink
+        outlinePass(r, palette.ink)
+        return Sprite(r.w, r.h, r.px, ax, ay)
     }
 
     private fun buildDeer(de: Deer, phase: Double, grazing: Boolean): Sprite {
