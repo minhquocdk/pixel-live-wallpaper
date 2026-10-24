@@ -81,18 +81,20 @@ class RiftScene(
     private val ember = palette.rift("#e07a3c")
     private val wood = palette.rift("#a9763f")
     private val woodDark = palette.rift("#6f4a26")
-    private val canopy = listOf("#2c4a2e", "#3a5f38", "#47773f", "#2f5230").map { palette.rift(it) }
+    private val canopy = listOf("#26402a", "#31502f", "#3d6338", "#2a4630").map { palette.rift(it) }
+    private val leafLight = palette.rift("#4c7a41")
+    private val leafHi = palette.rift("#639350")
     private val bank = palette.rift("#4d6b45")
     private val voidTop = palette.rift("#0a0d14")
     private val voidLow = palette.rift("#171b26")
 
     private val waterPal = WaterPalette(
-        LV = listOf("#2f7fa8", "#3a8eb2", "#46a0bd", "#54c7c0", "#3d93b4", "#327f9e", "#286a86")
+        LV = listOf("#2b6f86", "#2f7b93", "#3487a0", "#3a93a9", "#2c7085", "#25637a", "#1d5568")
             .map { palette.rift(it) }.toIntArray(),
-        FOAM = palette.rift("#eafcff"),
-        FOAM2 = palette.rift("#b9eef2"),
-        GLINT = palette.rift("#ffffff"),
-        GLINT2 = palette.rift("#d8f7ff"),
+        FOAM = palette.rift("#cfeeea"),
+        FOAM2 = palette.rift("#a6d8d6"),
+        GLINT = palette.rift("#eafcfd"),
+        GLINT2 = palette.rift("#c3e8ec"),
         WEED = palette.rift("#3f7f72"),
         WEED2 = palette.rift("#4d9382"),
         SAND = listOf("#8d9770", "#7a8a66", "#6c7f5e").map { palette.rift(it) }.toIntArray(),
@@ -197,11 +199,11 @@ class RiftScene(
                         base[i] = scalePacked(base[i], 0.82)
                     }
                     // vines: short strands hanging off the lip, never a speckle
-                    if (out < 9 * u) {
-                        val strand = latticeRandom(x, 0, seed + 3)
-                        if (strand > 0.86) {
-                            val len = 2 + (strand * 9).toInt()
-                            if (out < len * u) base[i] = if (bayerThreshold(x, y) > 0.5) vine else vineDark
+                    if (out < 7 * u) {
+                        val strand = latticeRandom(x / 2, 0, seed + 3)
+                        if (strand > 0.93) {
+                            val len = 3 + (strand * 12).toInt()
+                            if (out < len * u) base[i] = if (bayerThreshold(x, y) > 0.45) vine else vineDark
                         }
                     }
                 }
@@ -296,6 +298,17 @@ class RiftScene(
             }
         }
         buildBridge()
+        // the water that moves is what is left once the bridge is down: a bridge is not painted over every frame
+        val keepIdx = ArrayList<Int>(waterIdx.size)
+        val keepDepth = ArrayList<Double>(waterIdx.size)
+        for (k in waterIdx.indices) {
+            val i = waterIdx[k]
+            if (kind[i].toInt() != 4) continue
+            keepIdx.add(i)
+            keepDepth.add(waterDepth[k])
+        }
+        waterIdx.clear(); waterIdx.addAll(keepIdx)
+        waterDepth.clear(); waterDepth.addAll(keepDepth)
     }
 
     private fun buildBridge() {
@@ -356,7 +369,8 @@ class RiftScene(
                 val ox = c[0] * rx
                 val oy = c[1] * ry
                 ellipse(cx + ox, cy + oy, rx * c[2], ry * c[2], canopy[if (k % 2 == 0) 1 else 2])
-                ellipse(cx + ox - 0.1 * rx, cy + oy - 0.12 * ry, rx * c[2] * 0.62, ry * c[2] * 0.58, canopy[3])
+                ellipse(cx + ox - 0.16 * rx, cy + oy - 0.20 * ry, rx * c[2] * 0.58, ry * c[2] * 0.52, leafLight)
+                ellipse(cx + ox - 0.26 * rx, cy + oy - 0.32 * ry, rx * c[2] * 0.26, ry * c[2] * 0.22, leafHi)
             }
             // a dithered edge, one ring of leaves, never inside the wood
             for (y in floor(cy - ry - 2 * u).toInt()..ceil(cy + ry + 2 * u).toInt()) {
@@ -487,11 +501,15 @@ class RiftScene(
         ellipse(cx, cy, 6.4 * s, 4.6 * s, mixPacked(ink, glow, 0.55))
         ellipse(cx, cy, 3.6 * s, 2.6 * s, glow)
         ellipse(cx, cy, 1.8 * s, 1.2 * s, mixPacked(glow, 0xFFFFFF, 0.6))
-        // a stone rim, one block at a time
-        val steps = max(40, (10 * s * 3).toInt())
+        // a stone rim, one block at a time, lit on the upper left as everything else is
+        val steps = max(48, (10 * s * 3).toInt())
         for (k in 0 until steps) {
             val a = k * 2 * PI / steps
-            block(cx + cos(a) * 11.2 * s, cy + sin(a) * 8.6 * s, if (k % 3 == 0) stone else stoneDark)
+            val x = cx + cos(a) * 11.6 * s
+            val y = cy + sin(a) * 8.9 * s
+            val lit = cos(a) < -0.2 || sin(a) < -0.5
+            block(x, y, if (lit) stone else stoneDark)
+            if (!lit) block(x, y + 1.0 * s, mixPacked(stoneDark, ink, 0.45))
         }
         lights.add(Light(cx, cy, 26 * s, 1.0))
     }
@@ -513,11 +531,16 @@ class RiftScene(
     }
 
     private fun banner(cx: Double, cy: Double, team: Int) {
-        val s = u * 1.2
-        rect(cx - 0.4 * s, cy - 7 * s, cx + 0.4 * s, cy, ink)
-        for (k in 0 until 4) {
-            rect(cx + 0.5 * s, cy - 7 * s + k, cx + 3.4 * s - k * 0.5 * s, cy - 6 * s + k, teamColour(team))
+        val s = u * 1.1
+        ellipse(cx, cy + 0.6 * s, 2.0 * s, 0.9 * s, ink)
+        rect(cx - 0.6 * s, cy - 10 * s, cx + 0.6 * s, cy, woodDark)
+        block(cx, cy - 10.6 * s, gold)
+        val col = teamColour(team)
+        for (k in 0 until 6) {
+            val wide = 3.2 * s - abs(k - 2) * 0.35 * s
+            rect(cx + 0.8 * s, cy - 9.6 * s + k, cx + wide, cy - 8.6 * s + k, col)
         }
+        block(cx + 1.2 * s, cy - 9.0 * s, mixPacked(col, 0xFFFFFF, 0.55))
     }
 
     private fun buildProps() {
