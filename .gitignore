@@ -4,3 +4,7 @@ node_modules/
 # is kept, for the README)
 examples/**/*.mp4
 examples/**/poster.png
+
+# python leaves these behind
+tools/__pycache__/
+__pycache__/
