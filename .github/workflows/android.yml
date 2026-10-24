@@ -112,6 +112,19 @@ jobs:
             android/rift-night.png
           if-no-files-found: error
 
+      - name: Keep the Rift's stills in the branch
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          mkdir -p docs
+          cp "$GITHUB_WORKSPACE/android/rift-day.png" docs/rift-day.png
+          cp "$GITHUB_WORKSPACE/android/rift-night.png" docs/rift-night.png
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/rift-day.png docs/rift-night.png
+          if git diff --cached --quiet; then echo "the stills are as the branch already has them"; exit 0; fi
+          git commit -m "docs: the Rift's stills, as the engine drew them"
+          git push
+
       - name: Hand over the test report
         if: always()
         uses: actions/upload-artifact@v7
