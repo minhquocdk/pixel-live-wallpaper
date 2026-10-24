@@ -63,6 +63,10 @@ jobs:
             echo 'The build stopped. The tail of its log:'
             echo '```'
             tail -c 7000 /tmp/build.log || true
+            echo '--- the baked Rift ---'
+            tail -c 4000 /tmp/rift-baked.txt 2>/dev/null || true
+            echo '--- files ---'
+            ls -la "$GITHUB_WORKSPACE/android"/*.png 2>/dev/null || true
             echo '```'
           } > /tmp/comment.md
           gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/comment.md
@@ -74,6 +78,7 @@ jobs:
 
       - name: Draw the baked Rift, by day and by night
         run: |
+          set -o pipefail
           ./gradlew :core:preview --console=plain \
             --args="--seed twin-rivers-8 --theme rift --baked app/src/main/assets/rift --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-baked-day.png --scale 2 --frames 4" \
             | tee /tmp/rift-baked.txt
