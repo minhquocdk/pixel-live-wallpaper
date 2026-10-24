@@ -532,9 +532,62 @@ một lần, mọi thứ tất định theo seed, và khung hình chạy 30–60
 Không cái nào là lỗi kiến trúc: cả năm đều là bậc thang chi tiết trong `RiftScene`, sửa được mà không đụng
 `RiftPlan` hay test nào.
 
+### 14.d Hướng đi chốt: nền do người vẽ, chuyển động do engine
+
+Quyết định: **lấy ảnh vẽ làm lớp tĩnh**, engine chỉ vẽ thứ phải động. Lý do rất cụ thể — sau bốn vòng, phần yếu của
+engine là **mảng lớn và chi tiết dày** (cỏ, tán cây, vách đá), đúng thứ một model ảnh làm giỏi; còn phần engine làm
+giỏi là **thứ lặp đi lặp lại mỗi khung**: nước chảy, lính đi, đèn sáng, nhịp ngày đêm.
+
+Đường ống (đã chạy thật, không phải đề xuất):
+
+```
+ảnh vẽ 841 x 1870
+  └─ tools/rift_bake.py  --w 307 --h 682 --colours 40
+       ├─ background.png   307 x 682, 40 màu, 97 KB   ← lớp tĩnh
+       ├─ masks.png        307 x 682, R=water G=road B=stone
+       └─ bake.json        những gì đã tìm thấy
+            └─ android/app/src/main/assets/rift/
+                 └─ BakedRiftScene   (engine: đọc PNG, animate, grade theo giờ, scrim)
+```
+
+Vì sao cần **mask** chứ không chỉ ảnh: nước trong ảnh là pixel chết. Mask nói cho engine biết *pixel nào là nước*
+để làm nó động, *pixel nào là đường* để đọc ra ba lane cho lính đi, và *pixel nào là đá* để đèn đêm đặt đúng chỗ.
+`BakedRiftScene.readLanes()` đọc mask theo từng hàng: dải đường dưới tâm là mid, dải trái nhất là lane trái, phải
+nhất là lane phải — ba polyline, đúng ba lane.
+
+| Phép đo | Engine tự vẽ | **Nền vẽ + engine** |
+|---|---|---|
+| Một khung, ban ngày | 1.2 ms | **3.8 ms** |
+| Một khung, ban đêm | 4.0 ms | **5.9 ms** |
+| Dựng cảnh | 123 ms | **44 ms** (đọc PNG rẻ hơn dựng bản đồ) |
+| Kích thước asset | 0 | **119 KB** (nền 97 + mask 21) |
+| Nhìn ở 307 px | mảng thô, rừng giống vũng | **giữ được chi tiết như ảnh gốc** |
+
+**Cái giá phải trả, nói thẳng:**
+
+1. **Mất tính thủ tục.** Đổi seed không đổi bản đồ nữa — nền là một ảnh cố định. Nếu vẫn muốn nhiều bản đồ, phải
+   bake nhiều ảnh và chọn theo seed.
+2. **Khoá cỡ khung.** Nền bake ở đúng 307 × 682; máy cho khung khác thì `bakedRift()` trả `null` và app tự lùi về
+   `RiftScene` vẽ bằng code. Không lỗi, nhưng hai máy có thể thấy hai phong cách khác nhau.
+3. **Nhân vật trong tranh là pixel chết.** Ảnh gốc đã có lính đứng sẵn; engine vẽ thêm lính động thành ra **trùng**.
+   Bước còn thiếu là *xoá lính trong tranh* trước khi bake (xem §15).
+4. **Bản quyền.** Ảnh do model sinh ra thì không sao, nhưng phải tự vẽ/kiểm lại: không logo, không tên tướng, không
+   asset rip. Một ảnh do AI vẽ lại bố cục Rift vẫn là fan project phi thương mại, không phải tài sản của Riot.
+
 ---
 
-## 15. Câu hỏi mở — cần bạn quyết trước khi code
+## 15. Việc tiếp theo, theo thứ tự
+
+1. **Xoá lính khỏi tranh trước khi bake.** Ảnh có ~20 lính đứng sẵn. Cách rẻ: `rift_bake.py` tìm blob đỏ/xanh nhỏ
+   (< 12 px) nằm trên mask đường, thay bằng màu đường lấy từ 4 pixel kề (median) — đủ tốt cho pixel art.
+2. **Sinh mask từ chính engine, không từ màu.** `RiftPlan` đã biết chính xác chỗ nào là nước/đường/đá; xuất mask từ
+   đó (một ảnh 1 bit) chính xác hơn phân loại màu, và không lệch khi đổi ảnh nền.
+3. **Hai ba biến thể nền** (ngày mưa, đông, hoàng hôn) chọn theo seed, để "hạt giống" vẫn còn nghĩa.
+4. Xoá `RiftScene` vẽ tay? **Không** — giữ làm phương án dự phòng cho khung không khớp và cho test.
+
+---
+
+## 16. Câu hỏi mở — cần bạn quyết trước khi code
 
 1. **Mức trung thành**: giữ đủ 3 trụ/lane + 3 ức chế + 2 trụ nhà (18 + 8 sprite nhỏ, hơi rậm ở 300 px), hay rút
    còn 2 trụ/lane cho thoáng? Tôi nghiêng về **giữ đủ** để "đúng chất map".

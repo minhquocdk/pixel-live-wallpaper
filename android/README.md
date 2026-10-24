@@ -44,6 +44,17 @@ Không phải một hòn đảo khác, mà là **một bản đồ khác**: bả
 - Bản đồ chạy **sát mép** khung; hai dải trên/dưới — nơi điện thoại để đồng hồ và dock — được engine làm tối dần
   (một lớp `scrim`), nên chữ trắng của launcher vẫn đọc được mà không phải bỏ trống chỗ nào.
 
+**Bản nền vẽ tay, engine làm động.** Có hai cách dựng bản đồ này: engine tự vẽ từng pixel (`RiftScene`), hoặc lấy
+một ảnh pixel art làm **lớp tĩnh** rồi engine chỉ vẽ thứ phải động (`BakedRiftScene`). Cách thứ hai đang dùng:
+
+![Đảo Đôi Sông, nền vẽ, ban ngày](docs/rift-baked-day.png)
+
+- `tools/rift_bake.py` thu ảnh về đúng cỡ khung (307 × 682), lượng tử hoá còn 40 màu, và sinh thêm **mask**:
+  pixel nào là nước, pixel nào là đường, pixel nào là đá.
+- `BakedRiftScene` giữ nguyên nền, làm **nước động** trên đúng những pixel mask chỉ ra, đọc **ba lane** từ mask
+  cho lính đi, và phủ **ánh sáng theo giờ** + hai dải an toàn.
+- Mask là mấu chốt: ảnh là pixel chết, mask biến nó thành bản đồ có thể chạy.
+
 Bố cục này không vay từ bản đồ của game nào: nó là một bản đồ giả tưởng viết ra từ đặc tả
 [`docs/rift-portrait-spec.md`](docs/rift-portrait-spec.md), và hình dáng từng lane, từng trụ nằm trong
 `RiftPlan.kt` — toạ độ thuần, nên kiểm thử được bằng máy (đối xứng, mid ngắn nhất, sông cắt đúng một lần).
