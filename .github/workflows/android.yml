@@ -52,7 +52,20 @@ jobs:
         run: chmod +x gradlew
 
       - name: Grow an island and check it against the almanac
-        run: ./gradlew :core:test --console=plain
+        run: ./gradlew :core:test --console=plain 2>&1 | tee /tmp/build.log
+
+      - name: Say what the compiler said
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo 'The build stopped. The tail of its log:'
+            echo '```'
+            tail -c 7000 /tmp/build.log || true
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/comment.md
 
       - name: Draw a still of the island
         run: |

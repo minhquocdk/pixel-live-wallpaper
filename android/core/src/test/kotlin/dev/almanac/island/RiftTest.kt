@@ -4,7 +4,6 @@
 package dev.almanac.island
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -97,7 +96,7 @@ class RiftTest {
     fun `the great pits sit on opposite banks, one violet and one ember`() {
         val pits = RiftPlan.all().filter { it.kind == "pit" }
         assertEquals(2, pits.size)
-        assertNotEquals(pits[0].variant, pits[1].variant)
+        assertTrue(pits[0].variant != pits[1].variant)
         val a = pits[0]
         val b = pits[1]
         close(1.0, a.p + b.p, 1e-9)
