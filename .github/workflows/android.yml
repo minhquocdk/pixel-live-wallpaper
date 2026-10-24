@@ -20,7 +20,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # only used when a tag is pushed, to attach the APK to the release
+  contents: write # to keep the stills in the branch, and to attach the APK to a release
+  pull-requests: write # to say, on the pull request, what the compiler said
 
 concurrency:
   group: android-${{ github.ref }}
@@ -81,7 +82,7 @@ jobs:
           set -o pipefail
           ./gradlew :core:preview --console=plain \
             --args="--seed twin-rivers-8 --theme rift --baked app/src/main/assets/rift --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-baked-day.png --scale 2 --frames 4" \
-            | tee /tmp/rift-baked.txt
+            2>&1 | tee /tmp/rift-baked.txt
           ./gradlew :core:preview --console=plain \
             --args="--seed twin-rivers-8 --theme rift --baked app/src/main/assets/rift --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-baked-night.png --scale 2 --frames 4" \
             | tee -a /tmp/rift-baked.txt
@@ -130,7 +131,7 @@ jobs:
 
       - name: Keep the Rift's stills in the branch
         continue-on-error: true
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -x
           BRANCH="${{ github.event.pull_request.head.ref }}"
@@ -140,9 +141,21 @@ jobs:
           git checkout -B "$BRANCH" "origin/$BRANCH"
           mkdir -p docs
           for n in day night baked-day baked-night; do
-            cp "$GITHUB_WORKSPACE/android/rift-$n.png" "docs/rift-$n.png"
+            cp "$GITHUB_WORKSPACE/android/rift-$n.png" "docs/rift-$n.png" 2>/dev/null || echo "no rift-$n.png was drawn"
           done
-          { echo "The engine's own numbers, as the build drew them (307 x 682, the frame a 20:9 phone gets):"; echo; echo '```'; grep -hE "^rift " /tmp/rift-day.txt /tmp/rift-night.txt /tmp/rift-baked.txt 2>/dev/null; echo '```'; } > docs/rift-report.md
+          {
+            echo "The engine's own numbers, as the build drew them (307 x 682, the frame a 20:9 phone gets):"
+            echo
+            echo '```'
+            grep -hE "^rift " /tmp/rift-day.txt /tmp/rift-night.txt /tmp/rift-baked.txt 2>/dev/null
+            echo '```'
+            echo
+            echo 'If the baked run complained, here is what it said:'
+            echo
+            echo '```'
+            tail -c 4000 /tmp/rift-baked.txt 2>/dev/null || echo '(nothing)'
+            echo '```'
+          } > docs/rift-report.md
           git add docs/rift-day.png docs/rift-night.png docs/rift-baked-day.png docs/rift-baked-night.png docs/rift-report.md
           if git diff --cached --quiet; then echo "the stills are as the branch already has them"; exit 0; fi
           git commit -m "docs: the Rift's stills and numbers, as the engine drew them"
