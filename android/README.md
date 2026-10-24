@@ -27,7 +27,7 @@ Không cần cài Android Studio hay JDK trên máy bạn:
    - **`island-live-wallpaper`** — trong đó có `island-live-wallpaper-debug.apk` và `island-live-wallpaper-release.apk`
      (giải nén ra là cài được);
    - `island-still` — ảnh PNG do chính engine vẽ, để xem trước mà không cần điện thoại;
-   - `test-report` — kết quả 11 bài kiểm tra của engine.
+   - `test-report` — kết quả 13 bài kiểm tra của engine.
 3. Bản release cũng được đính vào tab **Releases** khi bạn push một tag `v*` (ví dụ `git tag v1.0 && git push origin v1.0`).
 
 Mỗi APK được ký bằng khoá debug nên cài thẳng lên máy là chạy; muốn ký bằng khoá riêng thì đặt các biến
@@ -88,7 +88,7 @@ android/
       Maths, Rng, Noise, Colour, Palette, Water, Shapes, Sprite,
       World, Relief, Light, IslandScene      ← engine, 1:1 với scene.js
       preview/PreviewMain.kt                 ← vẽ ảnh PNG trên laptop/CI
-    src/test/kotlin/dev/almanac/island/EngineTest.kt   ← 11 bài so khớp với bản JS
+    src/test/kotlin/dev/almanac/island/EngineTest.kt   ← 13 bài: so khớp với bản JS, và khung ổn định
   app/
     src/main/java/dev/almanac/island/wallpaper/
       IslandWallpaperService.kt   ← WallpaperService: vòng vẽ, đo tốc độ, nhấn đúp, nghe đổi cài đặt
@@ -107,7 +107,7 @@ Cần JDK 17 và Android SDK 35 (`ANDROID_HOME`), hoặc cứ để GitHub Actio
 
 ```bash
 cd android
-./gradlew :core:test                      # 11 bài kiểm tra engine
+./gradlew :core:test                      # 13 bài kiểm tra engine
 ./gradlew :app:assembleDebug              # ra app/build/outputs/apk/debug/*.apk
 ./gradlew :core:preview --args="--seed heron-bay-8 --t 13.05 --fixed-day --tod 0.3 --out island.png --scale 2"
 ```
