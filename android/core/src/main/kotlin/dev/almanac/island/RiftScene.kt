@@ -399,12 +399,14 @@ class RiftScene(
             val x = cx + cos(a) * (rx + 2.6 * u)
             val y = cy + sin(a) * (ry + 2.6 * u)
             val c = when {
-                k % 7 == 0 -> gold
-                (k / 3) % 2 == 0 -> stone
-                else -> stoneDark
+                k % 9 == 0 -> gold
+                (k / 4) % 2 == 0 -> stone
+                else -> mixPacked(stone, stoneDark, 0.35)
             }
+            // two rows deep, so the wall reads as a wall and not a line of dots
             block(x, y, c, markKind = 3)
-            block(x, y + 1.2 * u, stoneDark, markKind = 3)
+            block(x + cos(a) * 1.4 * u, y + sin(a) * 1.4 * u, stoneDark, markKind = 3)
+            block(x, y + 1.6 * u, mixPacked(stoneDark, ink, 0.3), markKind = 3)
         }
         // two posts either side of the gate
         for (side in listOf(-1.0, 1.0)) {
@@ -420,7 +422,7 @@ class RiftScene(
             when (piece.kind) {
                 "nexus" -> {
                     basePlatform(cx, cy, piece.team)
-                    nexusTower(cx, cy, piece.team, 1.6)
+                    nexusTower(cx, cy, piece.team, 2.0)
                 }
                 "nexusTower" -> turret(cx, cy, piece.team, 0.85)
                 "fountain" -> fountain(cx, cy)
@@ -477,8 +479,8 @@ class RiftScene(
 
     /** The stone apron a base stands on: a wide, pale ring, its edge dithered into the grass. */
     private fun basePlatform(cx: Double, cy: Double, team: Int) {
-        val rx = (px1 - px0) * 0.105
-        val ry = (py1 - py0) * 0.042
+        val rx = (px1 - px0) * 0.082
+        val ry = (py1 - py0) * 0.033
         for (y in floor(cy - ry - 3 * u).toInt()..ceil(cy + ry + 3 * u).toInt()) {
             for (x in floor(cx - rx - 3 * u).toInt()..ceil(cx + rx + 3 * u).toInt()) {
                 if (x < 0 || y < 0 || x >= W || y >= H) continue
@@ -488,8 +490,8 @@ class RiftScene(
                 if (dd > 1.0) continue
                 when {
                     dd > 0.82 -> if (bayerThreshold(x, y) > (dd - 0.82) * 5.0) block(x.toDouble(), y.toDouble(), stoneDark, 3)
-                    dd > 0.62 -> block(x.toDouble(), y.toDouble(), mixPacked(stone, stoneDark, 0.55), 3)
-                    else -> block(x.toDouble(), y.toDouble(), mixPacked(stone, stoneMid, 0.4), 3)
+                    dd > 0.62 -> block(x.toDouble(), y.toDouble(), mixPacked(stoneDark, ink, 0.25), 3)
+                    else -> block(x.toDouble(), y.toDouble(), mixPacked(stone, stoneMid, 0.55), 3)
                 }
             }
         }
@@ -562,7 +564,7 @@ class RiftScene(
     }
 
     private fun banner(cx: Double, cy: Double, team: Int) {
-        val s = u * 1.1
+        val s = u * 1.9
         ellipse(cx, cy + 0.6 * s, 2.0 * s, 0.9 * s, ink)
         rect(cx - 0.9 * s, cy - 10 * s, cx + 0.4 * s, cy, woodDark)
         rect(cx - 0.2 * s, cy - 10 * s, cx + 0.4 * s, cy, mixPacked(woodDark, gold, 0.35))
@@ -577,17 +579,17 @@ class RiftScene(
 
     private fun buildProps() {
         val tuft = palette.rift("#7fa84d")
-        for (patch in 0 until 34) {
+        for (patch in 0 until 64) {
             val cx = latticeRandom(patch, 1, seed + 41) * W
             val cy = latticeRandom(patch, 2, seed + 43) * H
             if (cx < 12 * u || cy < 12 * u || cx > W - 12 * u || cy > H - 12 * u) continue
             if (depth(cx, cy) < 9 * u) continue
             if (kind[cy.toInt() * W + cx.toInt()].toInt() != 1) continue
             val roll = latticeRandom(patch, 3, seed + 45)
-            val count = 4 + (roll * 8).toInt()
+            val count = 5 + (roll * 9).toInt()
             for (k in 0 until count) {
                 val a = k * 2.399963 + roll * 6
-                val r = (0.35 + latticeRandom(patch * 31 + k, 4, seed + 47)) * 7 * u
+                val r = (0.35 + latticeRandom(patch * 31 + k, 4, seed + 47)) * 9 * u
                 val x = cx + cos(a) * r
                 val y = cy + sin(a) * r * 0.7
                 val xi = x.toInt()
