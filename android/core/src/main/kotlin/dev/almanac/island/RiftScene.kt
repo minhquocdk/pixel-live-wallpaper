@@ -357,8 +357,8 @@ class RiftScene(
             if (piece.kind != "forest") continue
             val cx = RiftPlan.across(piece.p) * W
             val cy = RiftPlan.down(piece.q) * H
-            val rx = (px1 - px0) * 0.132
-            val ry = (py1 - py0) * 0.098
+            val rx = (px1 - px0) * 0.148
+            val ry = (py1 - py0) * 0.110
             // a dark outline under everything, so the wood sits on the grass
             ellipse(cx, cy + 1.4 * u, rx + 1.6 * u, ry + 1.2 * u, ink)
             ellipse(cx, cy, rx, ry, canopy[0])
@@ -418,7 +418,10 @@ class RiftScene(
             val cx = RiftPlan.across(piece.p) * W
             val cy = RiftPlan.down(piece.q) * H
             when (piece.kind) {
-                "nexus" -> nexusTower(cx, cy, piece.team, 1.6)
+                "nexus" -> {
+                    basePlatform(cx, cy, piece.team)
+                    nexusTower(cx, cy, piece.team, 1.6)
+                }
                 "nexusTower" -> turret(cx, cy, piece.team, 0.85)
                 "fountain" -> fountain(cx, cy)
                 "tower" -> turret(cx, cy, piece.team, 1.0)
@@ -470,6 +473,32 @@ class RiftScene(
         ellipse(cx, cy - 4.2 * s, 1.8 * s, 2.8 * s, teamColour(team))
         block(cx, cy - 6.4 * s, teamColour(team, deep = true))
         lights.add(Light(cx, cy - 4 * s, 7 * s, 0.7))
+    }
+
+    /** The stone apron a base stands on: a wide, pale ring, its edge dithered into the grass. */
+    private fun basePlatform(cx: Double, cy: Double, team: Int) {
+        val rx = (px1 - px0) * 0.105
+        val ry = (py1 - py0) * 0.042
+        for (y in floor(cy - ry - 3 * u).toInt()..ceil(cy + ry + 3 * u).toInt()) {
+            for (x in floor(cx - rx - 3 * u).toInt()..ceil(cx + rx + 3 * u).toInt()) {
+                if (x < 0 || y < 0 || x >= W || y >= H) continue
+                val ex = (x - cx) / rx
+                val ey = (y - cy) / ry
+                val dd = ex * ex + ey * ey
+                if (dd > 1.0) continue
+                when {
+                    dd > 0.82 -> if (bayerThreshold(x, y) > (dd - 0.82) * 5.0) block(x.toDouble(), y.toDouble(), stoneDark, 3)
+                    dd > 0.62 -> block(x.toDouble(), y.toDouble(), mixPacked(stone, stoneDark, 0.55), 3)
+                    else -> block(x.toDouble(), y.toDouble(), mixPacked(stone, stoneMid, 0.4), 3)
+                }
+            }
+        }
+        // a ring of the side's colour set into the stone
+        val steps = max(48, (rx * 3).toInt())
+        for (k in 0 until steps) {
+            val a = k * 2 * PI / steps
+            if (k % 5 == 0) block(cx + cos(a) * rx * 0.86, cy + sin(a) * ry * 0.86, teamColour(team), 3)
+        }
     }
 
     private fun nexusTower(cx: Double, cy: Double, team: Int, scale: Double) {
@@ -547,37 +576,67 @@ class RiftScene(
     }
 
     private fun buildProps() {
-        // bushes and loose stones along the roads, on grass only
-        for (k in 0 until 170) {
-            val x = latticeRandom(k, 1, seed + 41) * W
-            val y = latticeRandom(k, 2, seed + 43) * H
+        val tuft = palette.rift("#7fa84d")
+        for (patch in 0 until 34) {
+            val cx = latticeRandom(patch, 1, seed + 41) * W
+            val cy = latticeRandom(patch, 2, seed + 43) * H
+            if (cx < 12 * u || cy < 12 * u || cx > W - 12 * u || cy > H - 12 * u) continue
+            if (depth(cx, cy) < 9 * u) continue
+            if (kind[cy.toInt() * W + cx.toInt()].toInt() != 1) continue
+            val roll = latticeRandom(patch, 3, seed + 45)
+            val count = 4 + (roll * 8).toInt()
+            for (k in 0 until count) {
+                val a = k * 2.399963 + roll * 6
+                val r = (0.35 + latticeRandom(patch * 31 + k, 4, seed + 47)) * 7 * u
+                val x = cx + cos(a) * r
+                val y = cy + sin(a) * r * 0.7
+                val xi = x.toInt()
+                val yi = y.toInt()
+                if (xi < 2 || yi < 2 || xi >= W - 2 || yi >= H - 2) continue
+                if (kind[yi * W + xi].toInt() != 1) continue
+                if (depth(x, y) < 6 * u) continue
+                val pick = latticeRandom(patch * 17 + k, 5, seed + 49)
+                when {
+                    // a bush: two greens, lit on the upper left
+                    pick < 0.55 -> {
+                        ellipse(x, y, 2.6 * u, 1.4 * u, canopy[1])
+                        ellipse(x - 0.7 * u, y - 0.5 * u, 1.7 * u, 0.9 * u, leafLight)
+                        block(x - 1.2 * u, y - 0.9 * u, leafHi)
+                    }
+                    // a rock
+                    pick < 0.74 -> {
+                        ellipse(x, y, 1.8 * u, 1.0 * u, stoneDark)
+                        ellipse(x - 0.4 * u, y - 0.3 * u, 1.1 * u, 0.6 * u, stone)
+                    }
+                    // a clump of tall grass
+                    pick < 0.9 -> {
+                        for (b in 0..2) {
+                            val bx = x + (b - 1) * 0.9 * u
+                            block(bx, y, tuft)
+                            block(bx, y - 1.0 * u, tuft)
+                            if (b != 1) block(bx, y - 1.8 * u, grass[2])
+                        }
+                    }
+                    // a small tree
+                    else -> {
+                        ellipse(x, y + 1.4 * u, 2.4 * u, 1.1 * u, canopy[0])
+                        rect(x - 0.6 * u, y - 1.0 * u, x + 0.6 * u, y + 1.2 * u, woodDark)
+                        ellipse(x, y - 2.4 * u, 2.6 * u, 2.0 * u, canopy[1])
+                        ellipse(x - 0.8 * u, y - 3.0 * u, 1.5 * u, 1.0 * u, leafLight)
+                    }
+                }
+            }
+        }
+        // a scatter of single tufts along every road, the way trodden ground keeps a few
+        for (k in 0 until 220) {
+            val x = latticeRandom(k, 6, seed + 61) * W
+            val y = latticeRandom(k, 7, seed + 63) * H
             val xi = x.toInt()
             val yi = y.toInt()
             if (xi < 2 || yi < 2 || xi >= W - 2 || yi >= H - 2) continue
-            val i = yi * W + xi
-            if (kind[i].toInt() != 1) continue
-            if (depth(x, y) < 5 * u) continue
-            if (latticeRandom(k, 3, seed + 45) > 0.55) {
-                ellipse(x, y, 2.4 * u, 1.3 * u, canopy[2])
-                ellipse(x - 0.8 * u, y - 0.4 * u, 1.4 * u, 0.8 * u, canopy[3])
-            } else {
-                ellipse(x, y, 1.3 * u, 0.8 * u, mixPacked(stone, stoneDark, 0.4))
-            }
-        }
-        // a few tall trees off the lanes, so the ground is not a lawn
-        for (k in 0 until 54) {
-            val x = latticeRandom(k, 5, seed + 51) * W
-            val y = latticeRandom(k, 6, seed + 53) * H
-            val xi = x.toInt()
-            val yi = y.toInt()
-            if (xi < 6 || yi < 6 || xi >= W - 6 || yi >= H - 6) continue
             if (kind[yi * W + xi].toInt() != 1) continue
-            if (depth(x, y) < 8 * u) continue
-            val nearRoad = (xi - W / 2.0).let { abs(it) < 10 * u }
-            if (nearRoad) continue
-            ellipse(x, y + 1.5 * u, 2.8 * u, 1.8 * u, canopy[0])
-            rect(x - 0.5 * u, y, x + 0.5 * u, y + 2 * u, woodDark)
-            ellipse(x, y - 1.2 * u, 1.8 * u, 1.5 * u, canopy[2])
+            if (depth(x, y) < 6 * u) continue
+            block(x, y, if (latticeRandom(k, 8, seed + 65) > 0.6) tuft else grassDark)
         }
     }
 
