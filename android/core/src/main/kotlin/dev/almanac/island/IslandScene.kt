@@ -106,6 +106,12 @@ class IslandScene(
     private var boatY = 0.0
     private var boatReady = false
 
+    // the whale: a head that swims a slow loop, and a spine that follows it, under the water and out of reach
+    private var whaleX = 0.0
+    private var whaleY = 0.0
+    private var spine: Array<DoubleArray> = Array(10) { DoubleArray(2) }
+    private var whaleShape: BooleanArray = BooleanArray(0)
+
     // screen places for the lights
     private val houseScreen = HashMap<Int, IntArray>()
     private val lampScreen = ArrayList<IntArray>()
@@ -319,6 +325,12 @@ class IslandScene(
                 ),
             )
         }
+        // the whale keeps to the deep, where the fish do not go
+        val deep = seaPoint(W / 2, H / 2, 75.0 * d, 999.0 * d)
+        whaleX = deep[0]
+        whaleY = deep[1]
+        spine = Array(10) { k -> doubleArrayOf(deep[0] - k * 3 * d, deep[1]) }
+        whaleShape = BooleanArray(W * H)
         for (k in 0 until 7) birds.add(Bird(-40.0 - k * 6 * d, 44 * d + k * 2, 0.0, 0.0))
         world.housesByVillage.getOrNull(0)?.let { list ->
             for (k in 0 until 6) {
@@ -489,6 +501,23 @@ class IslandScene(
             } else {
                 f.vx = -f.vx
                 f.vy = -f.vy
+            }
+        }
+        // the whale's head swims a slow loop; its spine follows, each joint bending no more than a spine bends
+        if (spine.size == 10 && whaleShape.isNotEmpty()) {
+            val wa = clock * 0.35
+            spine[0] = doubleArrayOf(whaleX + cos(wa) * 34 * d, whaleY + sin(wa * 1.3) * 9 * d)
+            for (k in 1 until spine.size) {
+                val px = spine[k - 1][0]
+                val py = spine[k - 1][1]
+                val back = if (k > 1) {
+                    Math.atan2(spine[k - 1][1] - spine[k - 2][1], spine[k - 1][0] - spine[k - 2][0]) + PI
+                } else {
+                    Math.atan2(spine[k][1] - py, spine[k][0] - px)
+                }
+                val heading = Math.atan2(spine[k][1] - py, spine[k][0] - px)
+                val ang = back + clamp(angleDiff(back, heading), -0.35, 0.35)
+                spine[k] = doubleArrayOf(px + cos(ang) * 3.2 * d, py + sin(ang) * 3.2 * d)
             }
         }
         // gulls in a V across the sky
@@ -680,7 +709,18 @@ class IslandScene(
         }
         items.sortBy { it.z }
         for (it in items) stamp(it)
-        // under the water: the fish
+        // under the water: the whale's shadow (a darkening of the sea it swims through), and the fish
+        if (whaleShape.size == frame.size) {
+            java.util.Arrays.fill(whaleShape, false)
+            for (k in spine.indices) {
+                val r = WHALE_RADII[k] * d
+                ellipseMask(whaleShape, spine[k][0], spine[k][1], r * 1.25, r)
+            }
+            val tail = spine[spine.size - 1]
+            ellipseMask(whaleShape, tail[0], tail[1] - 2 * d, 1.2 * d, 2.4 * d)
+            ellipseMask(whaleShape, tail[0], tail[1] + 2 * d, 1.2 * d, 2.4 * d)
+            for (i in frame.indices) if (whaleShape[i] && waterKindAt(i) == 1) frame[i] = scalePacked(frame[i], 0.66)
+        }
         for (f in fish) {
             val l = hypot(f.vx, f.vy).let { if (it == 0.0) 1.0 else it }
             for (k in 0 until 3) {
@@ -691,6 +731,22 @@ class IslandScene(
                     val wmKind = waterKindAt(i)
                     if (wmKind == 1) frame[i] = scalePacked(frame[i], if (k != 0) 0.62 else 0.5)
                 }
+            }
+        }
+    }
+
+    /** Paints an ellipse into a mask: what a whale's body is made of, one joint at a time. */
+    private fun ellipseMask(mask: BooleanArray, cx: Double, cy: Double, rx: Double, ry: Double) {
+        if (rx <= 0 || ry <= 0) return
+        val x0 = max(0, floor(cx - rx).toInt())
+        val x1 = min(W - 1, floor(cx + rx).toInt())
+        val y0 = max(0, floor(cy - ry).toInt())
+        val y1 = min(H - 1, floor(cy + ry).toInt())
+        for (y in y0..y1) {
+            for (x in x0..x1) {
+                val dx = (x - cx) / rx
+                val dy = (y - cy) / ry
+                if (dx * dx + dy * dy <= 1.0) mask[y * W + x] = true
             }
         }
     }
@@ -950,3 +1006,9 @@ class IslandScene(
         return Sprite(r.w, r.h, r.px, ax, ay)
     }
 }
+
+/** The whale's thickness along its spine: a head, shoulders, a tapering tail (the almanac's smoothCurve, sampled). */
+private val WHALE_RADII = doubleArrayOf(
+    2.6, 2.8479296855154193, 3.266565056139816, 3.3732444444444445, 2.9754831275720166,
+    2.315005761316872, 1.6683555555555558, 1.3120757201646094, 1.0914951989026067, 0.8,
+)

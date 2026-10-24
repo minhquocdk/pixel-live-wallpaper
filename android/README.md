@@ -57,7 +57,7 @@ Mỗi APK được ký bằng khoá debug nên cài thẳng lên máy là chạy
 | | Bản web (`examples/island`) | Bản Kotlin |
 | --- | --- | --- |
 | Một khung | ~0,85 giây (cả khung, kể cả chữ) | **~7 ms** ở 384×216, **~13 ms** ở 768×432 (JVM trên laptop) |
-| Cỡ tranh | cố định 384×216 | máy tự chọn (mặc định ~210 000 pixel, ví dụ 300×660), đổi được tới 420 000 |
+| Cỡ tranh | cố định 384×216 | máy tự chọn (mặc định ~210 000 pixel, ví dụ 307×682), đổi được tới 420 000 |
 | Dựng đảo | ~0,5 giây mỗi lần đổi hạt giống | ~0,5 giây, **trên thread nền**, hình nền cũ vẫn chạy |
 | Khi không nhìn thấy | vẫn vẽ | **dừng hẳn** (khoá màn hình, app khác che) |
 
