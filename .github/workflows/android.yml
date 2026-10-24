@@ -75,9 +75,11 @@ jobs:
       - name: Draw the Rift, by day and by night
         run: |
           ./gradlew :core:preview --console=plain \
-            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-day.png --scale 2"
+            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-day.png --scale 2 --frames 4" \
+            | tee /tmp/rift-day.txt
           ./gradlew :core:preview --console=plain \
-            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-night.png --scale 2"
+            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-night.png --scale 2 --frames 4" \
+            | tee /tmp/rift-night.txt
 
       - name: Build the wallpaper
         run: ./gradlew :app:assembleDebug :app:assembleRelease --console=plain
@@ -123,9 +125,10 @@ jobs:
           mkdir -p docs
           cp "$GITHUB_WORKSPACE/android/rift-day.png" docs/rift-day.png
           cp "$GITHUB_WORKSPACE/android/rift-night.png" docs/rift-night.png
-          git add docs/rift-day.png docs/rift-night.png
+          { echo "The engine's own numbers, as the build drew them:"; echo; echo '```'; cat /tmp/rift-day.txt /tmp/rift-night.txt; echo '```'; } > docs/rift-report.md
+          git add docs/rift-day.png docs/rift-night.png docs/rift-report.md
           if git diff --cached --quiet; then echo "the stills are as the branch already has them"; exit 0; fi
-          git commit -m "docs: the Rift's stills, as the engine drew them"
+          git commit -m "docs: the Rift's stills and numbers, as the engine drew them"
           git push origin "HEAD:$BRANCH"
 
       - name: Hand over the test report
