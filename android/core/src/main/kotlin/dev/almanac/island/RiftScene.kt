@@ -89,15 +89,15 @@ class RiftScene(
     private val voidLow = palette.rift("#171b26")
 
     private val waterPal = WaterPalette(
-        LV = listOf("#2b6f86", "#2f7b93", "#3487a0", "#3a93a9", "#2c7085", "#25637a", "#1d5568")
+        LV = listOf("#3b8aa2", "#37849c", "#337e96", "#2f7891", "#2b728b", "#276c86", "#236680")
             .map { palette.rift(it) }.toIntArray(),
         FOAM = palette.rift("#cfeeea"),
         FOAM2 = palette.rift("#a6d8d6"),
         GLINT = palette.rift("#eafcfd"),
         GLINT2 = palette.rift("#c3e8ec"),
-        WEED = palette.rift("#3f7f72"),
-        WEED2 = palette.rift("#4d9382"),
-        SAND = listOf("#8d9770", "#7a8a66", "#6c7f5e").map { palette.rift(it) }.toIntArray(),
+        WEED = palette.rift("#2a7089"),
+        WEED2 = palette.rift("#2d748d"),
+        SAND = listOf("#6f7d63", "#66755c", "#5d6b56").map { palette.rift(it) }.toIntArray(),
     )
 
     private val soldiers = ArrayList<Soldier>(24)
@@ -176,11 +176,13 @@ class RiftScene(
                         else -> {
                             val broad = fractalNoise(x / (26.0 * u), y / (26.0 * u), seed, 3)
                             val fine = fractalNoise(x / (7.0 * u), y / (7.0 * u), seed + 7, 2)
-                            val v = broad * 0.72 + fine * 0.28
-                            val shade = (v * 4.0).toInt().coerceIn(0, 3)
+                            val v = clamp(broad * 0.55 + fine * 0.45)
+                            val raw = v * 3.6
+                            val base4 = raw.toInt().coerceIn(0, 3)
+                            val frac = raw - base4
+                            val shade = (base4 + if (bayerThreshold(x, y) < frac) 1 else 0).coerceIn(0, 3)
                             when {
-                                d < 5.5 * u -> grassEdge
-                                bayerThreshold(x, y) > 0.9 -> grass[(shade + 3) % 4]
+                                d < 4.5 * u -> grassEdge
                                 else -> grass[shade]
                             }
                         }
@@ -533,7 +535,8 @@ class RiftScene(
     private fun banner(cx: Double, cy: Double, team: Int) {
         val s = u * 1.1
         ellipse(cx, cy + 0.6 * s, 2.0 * s, 0.9 * s, ink)
-        rect(cx - 0.6 * s, cy - 10 * s, cx + 0.6 * s, cy, woodDark)
+        rect(cx - 0.9 * s, cy - 10 * s, cx + 0.4 * s, cy, woodDark)
+        rect(cx - 0.2 * s, cy - 10 * s, cx + 0.4 * s, cy, mixPacked(woodDark, gold, 0.35))
         block(cx, cy - 10.6 * s, gold)
         val col = teamColour(team)
         for (k in 0 until 6) {
