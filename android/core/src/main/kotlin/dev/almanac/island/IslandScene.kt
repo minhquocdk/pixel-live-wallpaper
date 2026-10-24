@@ -59,18 +59,23 @@ class MapleLeaf(var x: Double, var y: Double, var vx: Double, var vy: Double, va
 
 /** The island, growing and living, drawn a frame at a time. */
 class IslandScene(
-    val phrase: String = World.DefaultPhrase,
-    val W: Int = World.ArtWidth,
-    val H: Int = World.ArtHeight,
+    override val phrase: String = World.DefaultPhrase,
+    override val W: Int = World.ArtWidth,
+    override val H: Int = World.ArtHeight,
     val detail: Double = 1.0,
     val dayLength: Double = 300.0,
-    val theme: Theme = Theme.ORIGINAL,
-) {
-    val palette = Palette(theme)
+    override val theme: Theme = Theme.ORIGINAL,
+) : LiveScene {
+    override val palette = Palette(theme)
     val world = World(phrase, W, H, detail, palette, theme)
-    val seed: Int get() = world.seed
+    override val seed: Int get() = world.seed
 
-    val frame = IntArray(W * H)
+    override val frame = IntArray(W * H)
+
+    override val summary: String
+        get() = "${world.houses.size} houses, ${world.trees.size} trees"
+
+    override fun report(): List<String> = world.report()
 
     private val base = IntArray(W * H)
     private val zb = IntArray(W * H)
@@ -441,7 +446,7 @@ class IslandScene(
     var drawGradeFlag = true
 
     /** The world a moment later. */
-    fun step(dt: Double) {
+    override fun step(dt: Double) {
         clock += dt
         if (!clockAtFixedDay) tod = (0.3 + clock / dayLength) % 1.0
         val d = detail
@@ -638,7 +643,7 @@ class IslandScene(
 
     // ------------------------------------------------------------------------------------------ one frame
     /** Draws the picture at the scene's time of day into [frame]. */
-    fun render() {
+    override fun render() {
         System.arraycopy(base, 0, frame, 0, base.size)
         System.arraycopy(baseZb, 0, zb, 0, zb.size)
         System.arraycopy(baseEm, 0, em, 0, em.size)

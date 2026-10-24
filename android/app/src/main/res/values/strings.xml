@@ -33,4 +33,5 @@
     <string name="theme">Theme</string>
     <string name="theme_original">Original island</string>
     <string name="theme_maple">Maple Village (mushroom houses, maple leaves, slimes)</string>
+    <string name="theme_rift">Twin Rivers (tall lanes, a river, two great pits)</string>
 </resources>

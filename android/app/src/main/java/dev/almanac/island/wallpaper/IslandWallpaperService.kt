@@ -27,6 +27,8 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import dev.almanac.island.IslandScene
+import dev.almanac.island.LiveScene
+import dev.almanac.island.RiftScene
 import dev.almanac.island.Theme
 import kotlin.math.max
 import kotlin.math.min
@@ -48,7 +50,7 @@ class IslandWallpaperService : WallpaperService() {
         private var height = 0
 
         // what the island is: grown again when the seed, the size or the day's length changes
-        private var scene: IslandScene? = null
+        private var scene: LiveScene? = null
         private var building = false
         private var pendingRebuild = false
         private var seedPhrase = Prefs.seed(prefs)
@@ -220,11 +222,19 @@ class IslandWallpaperService : WallpaperService() {
             building = true
             handler.post {
                 val started = SystemClock.uptimeMillis()
-                val fresh = try {
-                    IslandScene(
-                        phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
-                        theme = Theme.fromId(themeId),
-                    )
+                val fresh: LiveScene? = try {
+                    val th = Theme.fromId(themeId)
+                    if (th == Theme.RIFT) {
+                        RiftScene(
+                            phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
+                            theme = th,
+                        )
+                    } else {
+                        IslandScene(
+                            phrase = seedPhrase, W = w, H = h, detail = d, dayLength = dayMinutes * 60.0,
+                            theme = th,
+                        )
+                    }
                 } catch (t: Throwable) {
                     null
                 }
@@ -398,7 +408,7 @@ class IslandWallpaperService : WallpaperService() {
                 appendLine("picture   ${artW} x ${artH} px  (detail ${"%.2f".format(detail)})")
                 appendLine("one frame ${"%.1f".format(averageCost())} ms  ·  ${"%.0f".format(measuredFps)} fps")
                 appendLine("grown in  $grownInMs ms")
-                appendLine("island    ${sc?.world?.houses?.size ?: 0} houses, ${sc?.world?.trees?.size ?: 0} trees")
+                appendLine("map       ${sc?.summary ?: "–"}")
             }
         }
     }

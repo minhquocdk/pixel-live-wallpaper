@@ -7,6 +7,8 @@
 package dev.almanac.island.preview
 
 import dev.almanac.island.IslandScene
+import dev.almanac.island.RiftScene
+import dev.almanac.island.Theme
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.CRC32
@@ -88,7 +90,39 @@ private fun chunk(out: FileOutputStream, type: String, data: ByteArray) {
     out.write(byteArrayOf((c ushr 24).toByte(), (c ushr 16).toByte(), (c ushr 8).toByte(), c.toByte()))
 }
 
+private fun renderRift(args: Array<String>) {
+    val phrase = arg(args, "--seed", "twin-rivers-8")
+    val size = arg(args, "--size", "307x682").lowercase()
+    val parts = size.split("x")
+    val w = parts.getOrNull(0)?.toIntOrNull() ?: 307
+    val h = parts.getOrNull(1)?.toIntOrNull() ?: 682
+    val detail = arg(args, "--detail", "%.3f".format(w / 384.0)).toDouble()
+    val scale = arg(args, "--scale", "2").toInt()
+    val out = arg(args, "--out", "/tmp/rift.png")
+    val tod = arg(args, "--tod", "0.30").toDouble()
+    val t = arg(args, "--t", "0").toDouble()
+    val frames = arg(args, "--frames", "1").toInt()
+    val t0 = System.nanoTime()
+    val scene = RiftScene(phrase, w, h, detail, startTod = tod)
+    val built = (System.nanoTime() - t0) / 1e6
+    repeat((t * 30).toInt()) { scene.step(1.0 / 30.0) }
+    var ms = 0.0
+    for (f in 0 until maxOf(1, frames)) {
+        if (f > 0) scene.step(1.0 / 30.0)
+        val t1 = System.nanoTime()
+        scene.render()
+        ms = (System.nanoTime() - t1) / 1e6
+    }
+    writePng(out, w, h, scene.frame, scale)
+    println("rift $phrase ${w}x$h detail ${"%.2f".format(detail)} grown in ${"%.0f".format(built)} ms, frame ${"%.1f".format(ms)} ms -> $out")
+    if (args.contains("--debug")) println(scene.report().joinToString("\n"))
+}
+
 fun main(args: Array<String>) {
+    if (Theme.fromId(arg(args, "--theme", "original")) == Theme.RIFT) {
+        renderRift(args)
+        return
+    }
     val phrase = arg(args, "--seed", "heron-bay-8")
     val w = arg(args, "--w", "384").toInt()
     val h = arg(args, "--h", "216").toInt()
