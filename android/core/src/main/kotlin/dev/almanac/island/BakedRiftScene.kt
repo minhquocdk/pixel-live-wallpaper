@@ -22,6 +22,8 @@ class BakedRiftScene(
     val dayLength: Double = 600.0,
     override val theme: Theme = Theme.RIFT,
     val startTod: Double = 0.30,
+    /** The lamps and pits the painter drew, as written by tools/rift_bake.py: one per line, kind team x y radius. */
+    val lightsSpec: String? = null,
 ) : LiveScene {
     override val W: Int = background.w
     override val H: Int = background.h
@@ -133,18 +135,47 @@ class BakedRiftScene(
             )
         }
         lanes = readLanes()
-        for (piece in RiftPlan.all()) {
-            val x = RiftPlan.across(piece.p) * W
-            val y = RiftPlan.down(piece.q) * H
-            when (piece.kind) {
-                "tower" -> lights.add(Light(x, y, 9 * u, 0.7))
-                "inhibitor" -> lights.add(Light(x, y, 7 * u, 0.7))
-                "nexus" -> lights.add(Light(x, y, 17 * u, 1.0))
-                "pit" -> lights.add(Light(x, y, 24 * u, 1.0))
-                else -> {}
+        if (!readLights()) {
+            // no list in the build: the plan's own idea of where things stand, near enough on a new painting
+            for (piece in RiftPlan.all()) {
+                val x = RiftPlan.across(piece.p) * W
+                val y = RiftPlan.down(piece.q) * H
+                when (piece.kind) {
+                    "tower" -> lights.add(Light(x, y, 9 * u, 0.7))
+                    "inhibitor" -> lights.add(Light(x, y, 7 * u, 0.7))
+                    "nexus" -> lights.add(Light(x, y, 17 * u, 1.0))
+                    "pit" -> lights.add(Light(x, y, 24 * u, 1.0))
+                    else -> {}
+                }
             }
         }
     }
+
+    /**
+     * The lamps, read out of the painting. A painted tower's crystal is not where the plan's tower would be — the new
+     * map is a different map — so the bake writes down what it found and this reads it: the light then falls on the
+     * thing the artist drew instead of on the grass beside it.
+     */
+    private fun readLights(): Boolean {
+        val spec = lightsSpec ?: return false
+        for (line in spec.lineSequence()) {
+            val t = line.trim()
+            if (t.isEmpty() || t.startsWith("#")) continue
+            val parts = t.split(' ', '\t').filter { it.isNotEmpty() }
+            if (parts.size < 5) continue
+            val kindName = parts[0]
+            val x = parts[2].toDoubleOrNull() ?: continue
+            val y = parts[3].toDoubleOrNull() ?: continue
+            val r = parts[4].toDoubleOrNull() ?: continue
+            val isPit = kindName == "pit"
+            val strength = if (kindName == "nexus" || isPit) 1.0 else 0.7
+            lights.add(Light(x, y, r * u, strength, isPit))
+        }
+        return lights.isNotEmpty()
+    }
+
+    /** The lamps, for a test that wants to look at them. */
+    fun lightsForTest(): List<Light> = lights.toList()
 
     // ---------------------------------------------------------------------------------------------- what the mask says
     private fun isRoad(x: Int, y: Int): Boolean =
@@ -382,7 +413,7 @@ class BakedRiftScene(
     private fun bloom(night: Double) {
         val k = clamp((night - 0.12) * 2.2)
         for (l in lights) {
-            val isPit = l.r > 20 * u
+            val isPit = l.pit || l.r > 20 * u
             val colour = when {
                 isPit -> pitGlow
                 l.r > 15 * u -> nexusGlow

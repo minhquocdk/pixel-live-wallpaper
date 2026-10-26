@@ -46,6 +46,26 @@ class BakedRiftTest {
     }
 
     @Test
+    fun `the lamps come from the painting, and every one of them is on it`() {
+        assumeTrue("no baked background in this build", File(dir, "lights.txt").exists())
+        val bg = readPng(File(dir, "background.png").path)
+        val mask = readPng(File(dir, "masks.png").path)
+        val text = File(dir, "lights.txt").readText()
+        val scene = BakedRiftScene(
+            "twin-rivers-8", bg, mask, detail = bg.w / 307.0, startTod = 0.80, lightsSpec = text,
+        )
+        val placed = scene.lightsForTest()
+        assertTrue("no lamps read from the list", placed.isNotEmpty())
+        for (l in placed) {
+            assertTrue("a lamp at ${l.x},${l.y} is off the picture", l.x > 0 && l.y > 0 && l.x < scene.W && l.y < scene.H)
+            assertTrue("a lamp with no reach", l.r >= 2.0)
+        }
+        // a base at each end of the map, and a pit at each side of the middle
+        assertTrue("no base", placed.count { it.r > 12 * (scene.W / 307.0) } >= 2)
+        assertTrue("no pit", placed.count { it.pit } >= 1)
+    }
+
+    @Test
     fun `the same painting animates the same way twice`() {
         val (bg, mask, _) = scenes()
         val a = BakedRiftScene("twin-rivers-8", bg, mask, detail = bg.w / 307.0, startTod = 0.3)

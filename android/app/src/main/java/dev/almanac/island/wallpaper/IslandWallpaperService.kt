@@ -234,6 +234,7 @@ class IslandWallpaperService : WallpaperService() {
                             BakedRiftScene(
                                 phrase = seedPhrase, background = baked.first, mask = baked.second,
                                 detail = d, dayLength = dayMinutes * 60.0, theme = th,
+                                lightsSpec = baked.third,
                             )
                         } else {
                             RiftScene(
@@ -292,13 +293,22 @@ class IslandWallpaperService : WallpaperService() {
          * across and is blitted up whole, which is also what pixel art wants.
          */
         /** The baked background and its mask, if this build has them at this exact size. */
-        private fun bakedRift(w: Int, h: Int): Pair<dev.almanac.island.PngImage, dev.almanac.island.PngImage>? {
+        private fun bakedRift(
+            w: Int,
+            h: Int,
+        ): Triple<dev.almanac.island.PngImage, dev.almanac.island.PngImage, String?>? {
             return try {
                 val assets = this@IslandWallpaperService.assets
                 fun load(name: String) = dev.almanac.island.readPng(assets.open("rift/$name").readBytes())
                 val bg = load("background.png")
                 val mk = load("masks.png")
-                if (bg.w != w || bg.h != h) null else bg to mk
+                // where the painter put the lamps, if the bake wrote them down
+                val lights = try {
+                    assets.open("rift/lights.txt").bufferedReader().use { it.readText() }
+                } catch (t: Throwable) {
+                    null
+                }
+                if (bg.w != w || bg.h != h) null else Triple(bg, mk, lights)
             } catch (t: Throwable) {
                 null
             }

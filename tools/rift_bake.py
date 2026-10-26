@@ -427,6 +427,89 @@ def masks(w, h, px):
     return m, counts
 
 
+def find_lights(w, h, px, cls):
+    """Where the lamps are, read out of the painting itself.
+
+    A tower or a base carries a bright crystal in its side's colour; a pit is a big dark hole in the plateau. Both are
+    blobs, and a blob has a centre — so the engine's night lights are placed where the artist drew the things, not
+    where the plan would have put them.
+    """
+    def blobs(mask, min_size, max_size, max_aspect=2.6):
+        out = []
+        for size, minx, miny, maxx, maxy, members in components(w, h, mask):
+            if size < min_size or size > max_size:
+                continue
+            bw = maxx - minx + 1
+            bh = maxy - miny + 1
+            if max(bw, bh) > max_aspect * min(bw, bh):
+                continue
+            sx = sy = 0
+            for i in members:
+                sx += i % w
+                sy += i // w
+            out.append((size, sx / size, sy / size, bw, bh))
+        return out
+
+    red = bytearray(w * h)
+    blue = bytearray(w * h)
+    dark = bytearray(w * h)
+    for i in range(w * h):
+        r, g, b = px[i * 3], px[i * 3 + 1], px[i * 3 + 2]
+        light = (r * 299 + g * 587 + b * 114) // 1000
+        if r > 120 and r - g > 45 and r - b > 45 and cls[i] != 0:
+            red[i] = 1
+        elif b > 130 and b - r > 60 and b - g > 20 and light > 90:
+            # blue crystals are the same colour as water; a crystal is small, so the size test sorts them out
+            blue[i] = 1
+        elif light < 46:
+            dark[i] = 1
+
+    def ring_is_plateau(minx, miny, maxx, maxy):
+        """A thing on the map has map around it; a shadow at the cliff's edge has darkness around it."""
+        if minx < 3 or miny < 3 or maxx > w - 4 or maxy > h - 4:
+            return False
+        void = total = 0
+        for x in range(minx - 2, maxx + 3):
+            for y in (miny - 2, maxy + 2):
+                total += 1
+                if cls[y * w + x] == 0:
+                    void += 1
+        for y in range(miny - 2, maxy + 3):
+            for x in (minx - 2, maxx + 2):
+                total += 1
+                if cls[y * w + x] == 0:
+                    void += 1
+        return void <= total * 0.3
+
+    lights = []
+    for team, mask in ((0, blue), (1, red)):
+        for size, cx, cy, bw, bh in blobs(mask, 8, 600):
+            if 0.42 < cy / h < 0.58:
+                continue  # the river is blue too
+            radius = max(5.0, min(18.0, (size ** 0.5) * 1.4))
+            lights.append(('nexus' if size > 150 else 'lamp', team, round(cx, 1), round(cy, 1), round(radius, 1)))
+    # every side has a base, even if its crystal is small enough that the size test called it a lamp
+    for team in (0, 1):
+        mine = [l for l in lights if l[0] == 'lamp' and l[1] == team]
+        if not any(l[0] == 'nexus' for l in lights if l[1] == team) and mine:
+            best = max(mine, key=lambda l: l[4])
+            lights.remove(best)
+            lights.append(('nexus', team, best[2], best[3], max(14.0, best[4])))
+    pits = []
+    for size, cx, cy, bw, bh in blobs(dark, 300, 9000, 2.2):
+        if not (0.18 < cy / h < 0.82) or not (0.12 < cx / w < 0.88):
+            continue
+        minx = int(cx - bw / 2); miny = int(cy - bh / 2); maxx = int(cx + bw / 2); maxy = int(cy + bh / 2)
+        if not ring_is_plateau(minx, miny, maxx, maxy):
+            continue
+        pits.append((size, cx, cy))
+    pits.sort(reverse=True)
+    for size, cx, cy in pits[:2]:
+        radius = max(10.0, min(26.0, (size ** 0.5) * 0.5))
+        lights.append(('pit', 0 if cy / h < 0.5 else 1, round(cx, 1), round(cy, 1), round(radius, 1)))
+    return lights
+
+
 def main(argv):
     if len(argv) < 3:
         print(__doc__)
@@ -450,6 +533,18 @@ def main(argv):
     os.makedirs(out_dir, exist_ok=True)
     write_png(os.path.join(out_dir, 'background.png'), w, h, baked)
     write_png(os.path.join(out_dir, 'masks.png'), w, h, mask)
+    lights = find_lights(w, h, baked, bytearray(
+        classify(baked[i * 3], baked[i * 3 + 1], baked[i * 3 + 2]) for i in range(w * h)
+    ))
+    with open(os.path.join(out_dir, 'lights.txt'), 'w') as f:
+        f.write('# kind team x y radius — read out of the painting by tools/rift_bake.py\n')
+        for kind, team, x, y, r in lights:
+            f.write('%s %d %.1f %.1f %.1f\n' % (kind, team, x, y, r))
+    print('lights found in the painting: %d (%d pits)' % (len(lights), sum(1 for l in lights if l[0] == 'pit')))
+    for name in ('background.png', 'masks.png', 'lights.txt'):
+        p = os.path.join(out_dir, name)
+        print('%-16s %6.1f KB' % (name, os.path.getsize(p) / 1024.0))
+
     meta = {
         'source': os.path.basename(src_path),
         'source_size': [sw, sh],

@@ -107,12 +107,14 @@ private fun renderRift(args: Array<String>) {
     val t0 = System.nanoTime()
     val baked = arg(args, "--baked", "")
     val scene: dev.almanac.island.LiveScene = if (baked.isNotEmpty()) {
+        val lightsFile = java.io.File("$baked/lights.txt")
         BakedRiftScene(
             phrase,
             readPng("$baked/background.png"),
             readPng("$baked/masks.png"),
             detail = detail,
             startTod = tod,
+            lightsSpec = if (lightsFile.isFile) lightsFile.readText() else null,
         )
     } else {
         RiftScene(phrase, w, h, detail, startTod = tod)
