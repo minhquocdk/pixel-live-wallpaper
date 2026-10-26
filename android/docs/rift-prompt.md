@@ -325,3 +325,96 @@ python3 tools/rift_bake.py anh-moi.png android/app/src/main/assets/rift --w 307 
 
 Bộ bake in ra tỉ lệ phần trăm từng loại; muốn chắc thì đọc mấy con số đó: **nước nên 5–9%**, **đường 11–16%**,
 **đá 8–13%**, **hư không 12–18%**. Lệch nhiều nghĩa là ảnh vi phạm "colour rules", sửa prompt chứ đừng sửa ngưỡng.
+
+## I. Prompt v5 — nền cho đường ống bake, bản đọc được bằng máy (mới nhất)
+
+v5 khác v4 ở chỗ nó không chỉ nói "đừng vẽ gì engine sẽ vẽ", mà **vẽ đúng những thứ bộ bake biết tìm**:
+
+| bộ bake tìm gì | prompt phải vẽ gì | nếu ảnh sai thì hỏng ra sao |
+|---|---|---|
+| nước (hue 185–215, một vùng liền) | sông liền một mạch, edge to edge, không bị đá hay cầu cắt vụn | sông bị lọc thành nhiều mảnh, mask mất nước |
+| đường (tan ấm, hue 30–42) | đường liền từng đoạn, rộng ≥ 4 px ở 307 | đường biến mất, lính không có đường đi |
+| tháp / trụ (một viên pha lê sáng ở màu đội) | **mỗi tháp một viên pha lê nhỏ, màu phẳng, sáng** | không có đèn nào được tìm thấy, đêm tối om |
+| hố (khoảng tối tròn, giữa bản đồ) | hố tròn, rỗng, tối, có vành đá sáng quanh | hố bị bỏ qua, mất hai vệt sáng đêm |
+| thác (nước nhạt ở hai đầu sông) | **hai thác nước vẽ bằng vệt dọc nhạt ở hai đầu sông** | engine không đổ nước xuống được, sông "cụt" |
+
+```
+Design an ORIGINAL pixel-art background for a vertical smartphone live wallpaper, aspect ratio 9:20
+(1080 x 2400, or any size at exactly that ratio).
+
+Original work only. Do not copy any existing game's artwork, map, logo, icon, character, item or
+trademark. No text, no numbers, no UI, no watermark, not a screenshot of an existing game.
+
+WHAT THIS PICTURE IS FOR
+This is the FIXED LAYER of a live wallpaper. A game engine animates the river, the falls, soldiers on
+the roads and the hour's light, and it finds what it must animate by COLOUR and by SHAPE. So draw the
+things listed under THE FIVE THINGS THE ENGINE MUST BE ABLE TO FIND, and draw nothing that moves.
+- Draw NO soldiers, NO heroes, NO monsters. Empty roads are correct, not a mistake.
+- Draw NO lighting effects: no glow, no bloom, no torchlight, no vignette, no god rays, no baked
+  shadows. Flat, even mid-day light from the upper left. A crystal is a flat bright colour, not a glow.
+- Draw NO reflections on the water.
+
+CAMERA
+A magical highland fortress seen from a high three-quarter top-down view (16-bit strategy-game camera,
+slightly tilted: we see tower tops and the faces of the cliff). One tall rounded-rectangle plateau
+floating in dark emptiness, its edge a layered rock cliff 10-14 pixels thick with moss and vines,
+fading into fog below.
+
+THE FIVE THINGS THE ENGINE MUST BE ABLE TO FIND
+1. THE RIVER — one continuous band of saturated cyan-to-blue, hue 185-215, edge to edge near the
+   vertical centre, in a gentle S, crossed by exactly ONE small wooden bridge where the central road
+   meets it. It must be ONE region: no rocks, no reeds, no bank punching holes through it. Its surface
+   is a mid-to-dark blue; the only pale water in the picture is the falls (item 5).
+2. THE ROADS — one family of warm pale tan, hue 30-42. The central road runs straight down the exact
+   middle, base to base, and is the widest. Two outer roads bow out to the left and right, clearly
+   narrower. Every road is at least 4 pixels wide at 307 pixels wide, and unbroken from base to river.
+3. THE TOWERS — every tower, guard tower, inhibitor and base carries ONE small flat bright crystal in
+   its side's colour (blue #3fa9f5 at the bottom half, red #d94a3d at the top half). It should be a
+   clean 2-4 pixel blob of that colour, clearly separate from the stone around it. The engine puts a
+   lamp glow on each one at night.
+4. THE PITS — one round pit on the upper bank left of centre, one mirrored on the lower bank right of
+   centre. A recessed stone bowl: a bright rim, a dark empty inside at least 12 pixels across, no
+   figures, no glow inside.
+5. THE FALLS — at BOTH ends of the river, the water goes over the cliff in thin PALE vertical streaks
+   (light cyan, nearly white in the gaps), 6-20 pixels wide, falling a little way down the cliff face
+   and breaking into a few pale specks. This is the only place in the picture with light water.
+
+LAYOUT — 180-degree rotational symmetry about the centre, red base at the top, blue base at the bottom
+- Two walled forests per half, one left one right, each a letter-D: a closed low stone wall with
+  exactly one narrow gate facing a lane, and inside one dense dark canopy that reads as a single mass.
+- Each base, inward: a crystal nexus on a round stone dais with a fountain behind it, two guard towers,
+  three inhibitor crystals, then three lane towers along each road. Banners on poles along the wall.
+- Packed dirt roads with darker rims and cart tracks; bushes, loose rocks and tall grass at their edges.
+
+COLOUR RULES — these are what a colour test reads, so keep them clean
+- Roads: ONE warm pale tan family, hue 30-42, lighter than grass, warmer than stone. Nothing else in
+  the picture may use that tan.
+- Grass: mid green, hue 80-110, medium brightness; it must not drift toward blue-grey.
+- Water: ONE cyan-to-blue family, hue 185-215, saturated, mid-to-dark; obviously bluer than stone.
+- Stone and cliff: blue-grey, hue 210-230, LOW saturation.
+- Emptiness outside the plateau: near-black blue, brightness under 10%.
+- Team colours: blue #3fa9f5, red #d94a3d. Hextech gold #e8c15a. Violet #8a5bd6. Ember #e07a3c.
+- Maximum 48 colours, dithered edges, no anti-aliasing, no smooth gradients.
+
+COMPOSITION
+- The top 13% and the bottom 12% are calm and dark: only void, dark cliff and very faint fog. No
+  tower, no crystal, no banner, nothing bright there. A phone's clock and dock live there.
+- The plateau fills everything between and runs almost to the left and right edges.
+- It must read at 307 pixels wide: a dark frame, a glowing vertical spine of road, two pits, one river.
+
+STYLE
+Original 16-bit pixel art, crisp single-pixel detail, no anti-aliasing, visible pixel grid, a
+high-resolution render of a low-resolution image.
+```
+
+Bake và đọc lại mấy con số bộ bake in ra. Với ảnh đang dùng (`image-2.png` thành 36 đèn: 2 nexus, 32 tháp, 2 hố;
+1722 điểm thác), các khoảng hợp lý là:
+
+| hạng | hợp lý | ảnh hiện tại |
+|---|---|---|
+| hư không | 12–20% | 16.3% |
+| cỏ / đất | 55–70% | 66.8% |
+| đường | 5–12% | 7.4% |
+| đá | 3–10% | 3.6% |
+| nước | 4–9% | 5.9% |
+| đèn tìm được | 20–45 | 36 |

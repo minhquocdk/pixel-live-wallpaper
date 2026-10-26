@@ -588,6 +588,9 @@ Khi chi tiết tĩnh đã có nền lo, công sức dồn hết vào thứ chỉ
 | **Lá rụng** | 14 lá từ bốn khu rừng, tối dần về đêm để không bị nhầm là đèn | 2 pixel/lá |
 | **Bloom ban đêm** | quầng cộng sáng cho trụ/nhà/hố, hố đập nhịp chậm | bảng falloff cache theo bán kính |
 | **Phản chiếu** | hố quái phản xuống sông, **chỉ vẽ trên pixel mask nói là nước** | 1 vệt hẹp |
+| **Thác đổ** (mới) | hai đầu sông: mask đánh dấu pixel nước *nhạt* bộ bake tìm được (`R=200` thay vì 255); engine cho một dải noise cao–hẹp trượt **xuống** trên đúng những pixel đó, thêm một gờ trắng nhấp nháy ở hàng nước tràn qua | 774–1722 pixel, 1 lần tra tile/pixel |
+| **Đèn theo tranh** (mới) | bộ bake dò **pha lê của từng tháp, nexus và hố** trong ảnh rồi ghi ra `lights.txt` (kind, team, x, y, r); engine thắp đúng chỗ hoạ sĩ vẽ, không thắp theo `RiftPlan` | 36 đèn, đọc 1 lần lúc dựng |
+| **Mây trôi bóng** (mới) | ban ngày một dải bóng mềm đi chéo qua cao nguyên, chỉ trên pixel đất/đường/đá, mạnh theo `1 - night` | 1 lần tra LUT 1024 + 1 `mix`/pixel đất |
 
 **Bài học hiệu năng, ghi lại:** bản đầu của lớp hiệu ứng làm khung hình từ 3.8 lên **11.4 ms** — vượt ngân sách
 8 ms. Ba thủ phạm, theo thứ tự: `scrim` chạy `scalePacked` trên **cả khung** mỗi frame (nó tĩnh!), `valueNoise`
@@ -595,6 +598,20 @@ gọi **theo từng pixel** cho nước và sương, và sương tính cả nh�
 bảng số nguyên tính một lần; noise đọc từ tile 128×128 cuộn sẵn (như `Water.kt` vẫn làm); sương lấy mẫu theo khối
 2 px. Kết quả: **6.7 / 8.5 ms**. Nguyên tắc rút ra: *mỗi frame chỉ được đụng vào pixel sẽ thay đổi, và mọi thứ
 tĩnh phải rời khỏi vòng lặp.*
+
+**Bài học thứ hai — con số đo được cũng có thể sai.** Sau khi đổi sang ảnh thứ hai, báo cáo CI ghi 8.3 / 12.5 ms,
+tưởng là vượt ngân sách. Thật ra `PreviewMain` chỉ in **khung cuối cùng**, và khung cuối là khung đầu tiên chưa
+được JIT sưởi. Đổi sang in **median của 20 khung** (kèm min/max), con số thật là **1.3 / 1.8 ms** — cùng một máy,
+cùng một ảnh. Từ giờ mọi so sánh hiệu năng dùng median 20 khung, không dùng một khung.
+
+**Bài học thứ ba — cache phải có khoá đủ.** `addGlow` gói khoá thành một `Int` (`r shl 12 or …`): hai bán kính
+khác nhau có thể ra cùng khoá, lấy nhầm bảng falloff của bán kính kia → `ArrayIndexOutOfBoundsException` trong
+test đêm (`BakedRiftTest.kt:68`). Khoá giờ là chuỗi `"bán kính/màu/bước"`; chậm hơn một chút lúc tra, không sai.
+
+**Bài học thứ tư — bộ bake không được "sửa" tranh của hoạ sĩ.** Hai đầu sông ban đầu bị đọc là "vết loang nhạt do
+lượng tử hoá" nên bị tô lại thành màu nước, rồi chấm Bayer thành ô caro — trong khi ảnh gốc vẽ **thác nước thật**
+ở đúng chỗ đó. Cách đúng: giữ nguyên pixel, chỉ **đánh dấu** chúng trong mask để engine làm cho chúng động. Xem
+ảnh gốc ở 3× trước khi kết luận một vùng là lỗi.
 
 ---
 
