@@ -119,15 +119,21 @@ private fun renderRift(args: Array<String>) {
     }
     val built = (System.nanoTime() - t0) / 1e6
     repeat((t * 30).toInt()) { scene.step(1.0 / 30.0) }
-    var ms = 0.0
+    val times = DoubleArray(maxOf(1, frames))
     for (f in 0 until maxOf(1, frames)) {
         if (f > 0) scene.step(1.0 / 30.0)
         val t1 = System.nanoTime()
         scene.render()
-        ms = (System.nanoTime() - t1) / 1e6
+        times[f] = (System.nanoTime() - t1) / 1e6
     }
+    val sorted = times.sorted()
+    val ms = sorted[sorted.size / 2]
     writePng(out, scene.W, scene.H, scene.frame, scale)
-    println("rift $phrase ${scene.W}x${scene.H} detail ${"%.2f".format(detail)} grown in ${"%.0f".format(built)} ms, frame ${"%.1f".format(ms)} ms -> $out")
+    println(
+        "rift $phrase ${scene.W}x${scene.H} detail ${"%.2f".format(detail)} grown in ${"%.0f".format(built)} ms, " +
+            "frame median ${"%.1f".format(ms)} ms (min ${"%.1f".format(sorted.first())}, max ${"%.1f".format(sorted.last())}, " +
+            "${sorted.size} frames) -> $out",
+    )
     if (args.contains("--debug")) println(scene.report().joinToString("\n"))
 }
 

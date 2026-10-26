@@ -64,19 +64,19 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew :core:preview --console=plain \
-            --args="--seed twin-rivers-8 --theme rift --baked $GITHUB_WORKSPACE/android/app/src/main/assets/rift --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-baked-day.png --scale 2 --frames 4" \
+            --args="--seed twin-rivers-8 --theme rift --baked $GITHUB_WORKSPACE/android/app/src/main/assets/rift --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-baked-day.png --scale 2 --frames 20" \
             2>&1 | tee /tmp/rift-baked.txt
           ./gradlew :core:preview --console=plain \
-            --args="--seed twin-rivers-8 --theme rift --baked $GITHUB_WORKSPACE/android/app/src/main/assets/rift --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-baked-night.png --scale 2 --frames 4" \
+            --args="--seed twin-rivers-8 --theme rift --baked $GITHUB_WORKSPACE/android/app/src/main/assets/rift --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-baked-night.png --scale 2 --frames 20" \
             | tee -a /tmp/rift-baked.txt
 
       - name: Draw the Rift, by day and by night
         run: |
           ./gradlew :core:preview --console=plain \
-            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-day.png --scale 2 --frames 4" \
+            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-day.png --scale 2 --frames 20" \
             | tee /tmp/rift-day.txt
           ./gradlew :core:preview --console=plain \
-            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-night.png --scale 2 --frames 4" \
+            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-night.png --scale 2 --frames 20" \
             | tee /tmp/rift-night.txt
 
       - name: Build the wallpaper
