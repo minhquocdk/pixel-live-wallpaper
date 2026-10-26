@@ -555,10 +555,10 @@ Vì sao cần **mask** chứ không chỉ ảnh: nước trong ảnh là pixel c
 `BakedRiftScene.readLanes()` đọc mask theo từng hàng: dải đường dưới tâm là mid, dải trái nhất là lane trái, phải
 nhất là lane phải — ba polyline, đúng ba lane.
 
-| Phép đo | Engine tự vẽ | **Nền vẽ + engine** |
+| Phép đo | Engine tự vẽ | **Nền vẽ + engine** (trước / sau khi tối ưu) |
 |---|---|---|
-| Một khung, ban ngày | 1.2 ms | **3.8 ms** |
-| Một khung, ban đêm | 4.0 ms | **5.9 ms** |
+| Một khung, ban ngày | 3.1 ms | 11.4 ms → **6.7 ms** |
+| Một khung, ban đêm | 6.6 ms | 10.0 ms → **8.5 ms** |
 | Dựng cảnh | 123 ms | **44 ms** (đọc PNG rẻ hơn dựng bản đồ) |
 | Kích thước asset | 0 | **119 KB** (nền 97 + mask 21) |
 | Nhìn ở 307 px | mảng thô, rừng giống vũng | **giữ được chi tiết như ảnh gốc** |
@@ -573,6 +573,28 @@ nhất là lane phải — ba polyline, đúng ba lane.
    Bước còn thiếu là *xoá lính trong tranh* trước khi bake (xem §15).
 4. **Bản quyền.** Ảnh do model sinh ra thì không sao, nhưng phải tự vẽ/kiểm lại: không logo, không tên tướng, không
    asset rip. Một ảnh do AI vẽ lại bố cục Rift vẫn là fan project phi thương mại, không phải tài sản của Riot.
+
+### 14.e Lớp hiệu ứng, giờ mới là phần việc chính
+
+Khi chi tiết tĩnh đã có nền lo, công sức dồn hết vào thứ chỉ code làm được. Đã có:
+
+| Hiệu ứng | Làm gì | Chi phí |
+|---|---|---|
+| **Sương trôi** ở hư không | noise cuộn, chỉ trên dải sát mép cao nguyên, không bao giờ vào hai dải an toàn | 1 lần đọc ô cho mỗi khối 2 px |
+| **Nước chảy** | tile cuộn ngang + gợn mịn, glint nhấp nháy trên đỉnh sóng | 2 lần tra bảng/pixel |
+| **Bọt bờ** | chỉ trên pixel nước *kề* pixel không-nước (tìm một lần lúc dựng), thở theo `sin` | 1 `sin`/pixel bờ (~5% nước) |
+| **Lính** | bóng đổ, áo choàng 2 tông, mũ sáng, **giáo bắt sáng**, bụi dưới chân, đèn nhỏ ban đêm | 12 pixel/lính |
+| **Chạm trán** | khi hai đợt gặp nhau giữa lane: một tia lửa loé rồi tắt | 1 glow nhỏ |
+| **Lá rụng** | 14 lá từ bốn khu rừng, tối dần về đêm để không bị nhầm là đèn | 2 pixel/lá |
+| **Bloom ban đêm** | quầng cộng sáng cho trụ/nhà/hố, hố đập nhịp chậm | bảng falloff cache theo bán kính |
+| **Phản chiếu** | hố quái phản xuống sông, **chỉ vẽ trên pixel mask nói là nước** | 1 vệt hẹp |
+
+**Bài học hiệu năng, ghi lại:** bản đầu của lớp hiệu ứng làm khung hình từ 3.8 lên **11.4 ms** — vượt ngân sách
+8 ms. Ba thủ phạm, theo thứ tự: `scrim` chạy `scalePacked` trên **cả khung** mỗi frame (nó tĩnh!), `valueNoise`
+gọi **theo từng pixel** cho nước và sương, và sương tính cả những pixel không phải sương. Sửa: `scrim` thành
+bảng số nguyên tính một lần; noise đọc từ tile 128×128 cuộn sẵn (như `Water.kt` vẫn làm); sương lấy mẫu theo khối
+2 px. Kết quả: **6.7 / 8.5 ms**. Nguyên tắc rút ra: *mỗi frame chỉ được đụng vào pixel sẽ thay đổi, và mọi thứ
+tĩnh phải rời khỏi vòng lặp.*
 
 ---
 
