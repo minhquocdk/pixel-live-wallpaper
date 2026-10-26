@@ -120,6 +120,13 @@ goes. The same scene runs in two places:
   python3 -m http.server 8000          # then open http://localhost:8000/examples/island/
   ```
 
+- **As a live wallpaper's preview**, [`examples/island/live/`](examples/island/live/) paints over a finished painting
+  instead of drawing one: the water, the falls, the grass and thirty crystals move, the hour turns, cloud shadows drift
+  and rain falls, and only the ninth of the picture that moves is painted each frame. It reads the painting itself
+  (`analyse.js` finds the water, the foam, the grass and the crystals in it), so another painted map works too:
+  [run it here](https://blaiselabs.github.io/procedural-almanac/examples/island/live/) or see its
+  [README](examples/island/live/README.md).
+
 - **In Node**, [`examples/island/island.mjs`](examples/island/island.mjs) films it:
 
   ```sh

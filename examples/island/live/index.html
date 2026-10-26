@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Island, alive · a live wallpaper in the browser</title>
+    <meta
+      name="description"
+      content="A painted island, brought to life with procedural-almanac: light that turns, water that moves, crystals that glow."
+    />
+    <style>
+      :root {
+        --bg: #0b0f1c;
+        --panel: #121a2c;
+        --panel-2: #18223a;
+        --ink: #e8eef8;
+        --muted: #93a2bd;
+        --line: #26334f;
+        --sea: #6fc6dc;
+        --gold: #ffd36e;
+        --red: #ff7a7a;
+        --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+        --body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(1200px 700px at 20% -10%, #16233d 0%, transparent 60%),
+          radial-gradient(900px 600px at 100% 10%, #1a2a24 0%, transparent 55%), var(--bg);
+        color: var(--ink);
+        font: 15px/1.55 var(--body);
+        padding: 22px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left));
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+        gap: 26px;
+        align-items: start;
+      }
+      @media (max-width: 820px) {
+        main {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      header {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 6px;
+      }
+      .lib {
+        font: 600 13px/1.2 var(--mono);
+        letter-spacing: 0.03em;
+        color: var(--gold);
+      }
+      .lib a {
+        color: inherit;
+        text-decoration: none;
+      }
+      h1 {
+        margin: 0;
+        font: 700 clamp(24px, 4.4vw, 34px)/1.12 var(--mono);
+        letter-spacing: -0.01em;
+        text-wrap: balance;
+      }
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        max-width: 72ch;
+      }
+      /* ------------------------------------------------------------------ the phone */
+      .stage {
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+      }
+      .phone {
+        position: relative;
+        width: min(100%, 380px);
+        aspect-ratio: 9 / 20;
+        border-radius: 30px;
+        padding: 8px;
+        background: linear-gradient(160deg, #2a3550, #0e1424 60%);
+        box-shadow:
+          0 30px 60px -20px #000c,
+          inset 0 0 0 1px #3a476b;
+      }
+      .screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 23px;
+        overflow: hidden;
+        background: #070b15;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        /* the art is wider than the phone frame on a desktop, so it is smoothed down (nearest would shimmer as it moves) */
+        image-rendering: auto;
+      }
+      #lens {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+      }
+      .phone.show-lens #lens {
+        opacity: 1;
+      }
+      .clock {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 14px;
+        text-align: center;
+        pointer-events: none;
+        font: 600 22px/1 var(--mono);
+        color: #fff;
+        text-shadow: 0 2px 10px #000a;
+        opacity: 0.92;
+      }
+      .caption {
+        font: 12px/1.4 var(--mono);
+        color: var(--muted);
+        text-align: center;
+        max-width: 44ch;
+      }
+      /* ------------------------------------------------------------------ the panel */
+      .panel {
+        display: grid;
+        gap: 16px;
+        background: linear-gradient(180deg, var(--panel), #0f1626);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .row > .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        display: grid;
+        gap: 8px;
+      }
+      legend {
+        padding: 0 0 2px;
+        font: 700 12px/1.2 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      label.knob {
+        display: grid;
+        grid-template-columns: 6.5em minmax(0, 1fr) 3.2em;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--ink);
+      }
+      label.knob output {
+        font: 12px/1 var(--mono);
+        color: var(--muted);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      input[type='range'] {
+        width: 100%;
+        accent-color: var(--sea);
+      }
+      button {
+        font: 600 14px/1 var(--body);
+        color: var(--ink);
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 9px 12px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: #3d4f78;
+      }
+      button[aria-pressed='true'] {
+        background: #1d3a52;
+        border-color: var(--sea);
+        color: #dff4fb;
+      }
+      button.primary {
+        background: var(--gold);
+        border-color: var(--gold);
+        color: #241a04;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      a:focus-visible {
+        outline: 3px solid var(--gold);
+        outline-offset: 2px;
+      }
+      .seg {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .seg button {
+        flex: 1 1 0;
+        min-width: 78px;
+      }
+      .meter {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        font: 12px/1.5 var(--mono);
+        color: var(--muted);
+        gap: 4px 10px;
+      }
+      .meter b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0;
+      }
+      .note code,
+      .caption code {
+        font: 12px var(--mono);
+        color: #cfe4f2;
+      }
+      footer {
+        grid-column: 1 / -1;
+        color: var(--muted);
+        font-size: 13px;
+        display: grid;
+        gap: 6px;
+      }
+      footer a {
+        color: var(--sea);
+      }
+      .bad {
+        color: var(--red);
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="lib"><a href="https://github.com/BlaiseLabs/procedural-almanac">procedural-almanac</a> · live</div>
+        <h1>Island, alive</h1>
+        <p class="sub">
+          A painted island, brought to life: the river ripples, the falls pour, the grass catches the wind, thirty-three
+          crystals glow with beats of their own, and the hour turns from noon through dusk to night. The art stays the
+          art — only what moves is painted over it — so this is the shape a live wallpaper takes.
+        </p>
+      </header>
+
+      <div class="stage">
+        <div class="phone" id="phone">
+          <div class="screen">
+            <canvas id="screen" width="841" height="1870" aria-label="The island, alive"></canvas>
+            <canvas id="lens" width="841" height="1870" aria-hidden="true"></canvas>
+            <div class="clock" id="clock">12:00</div>
+          </div>
+        </div>
+        <p class="caption" id="status">Reading the island…</p>
+      </div>
+
+      <div class="panel">
+        <fieldset>
+          <legend>The hour</legend>
+          <label class="knob">
+            <span>Time of day</span>
+            <input type="range" id="tod" min="0" max="1000" value="250" />
+            <output id="todOut">noon</output>
+          </label>
+          <div class="row">
+            <button type="button" id="daypass" aria-pressed="true">Day passes</button>
+            <label class="knob grow" style="grid-template-columns: 4.5em minmax(0, 1fr) 3.2em">
+              <span>Speed</span>
+              <input type="range" id="speed" min="10" max="600" value="180" />
+              <output id="speedOut">3:00</output>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Weather</legend>
+          <div class="seg" id="weather">
+            <button type="button" data-w="clear" aria-pressed="true">Clear</button>
+            <button type="button" data-w="rain" aria-pressed="false">Rain</button>
+            <button type="button" data-w="storm" aria-pressed="false">Storm</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>What moves</legend>
+          <label class="knob">
+            <span>Wind</span>
+            <input type="range" id="wind" min="0" max="100" value="50" />
+            <output id="windOut">50%</output>
+          </label>
+          <label class="knob">
+            <span>Clouds</span>
+            <input type="range" id="clouds" min="0" max="100" value="45" />
+            <output id="cloudsOut">45%</output>
+          </label>
+          <label class="knob">
+            <span>Water</span>
+            <input type="range" id="water" min="0" max="100" value="100" />
+            <output id="waterOut">100%</output>
+          </label>
+          <label class="knob">
+            <span>Glow</span>
+            <input type="range" id="glow" min="0" max="100" value="100" />
+            <output id="glowOut">100%</output>
+          </label>
+        </fieldset>
+
+        <div class="row">
+          <button type="button" class="primary" id="pause" aria-pressed="false">Pause</button>
+          <button type="button" id="lensBtn" aria-pressed="false">What moves</button>
+          <button type="button" id="still">Save a still</button>
+        </div>
+
+        <div class="meter">
+          <span>frame</span><b id="mFrame">–</b> <span>paint · blit</span><b id="mMs">–</b> <span>fps</span
+          ><b id="mFps">–</b> <span>pixels that move</span><b id="mMove">–</b> <span>of the picture</span
+          ><b id="mAll">–</b>
+        </div>
+        <p class="note">
+          The still picture is graded once each time the light changes; a frame is that picture copied and the pixels
+          that move written over it. <code>What moves</code> shows them: water, falling water, foam, the grass that
+          answers the wind, and each lamp's reach.
+        </p>
+      </div>
+
+      <footer>
+        <p>
+          The engine is <code>examples/island/live/live.js</code>; what is water and what is grass is read from the art
+          by <code>analyse.js</code>; the stills are made in Node by <code>film.mjs</code>. The art is
+          <code>art/island.png</code>. Everything that moves is the
+          <a href="https://github.com/BlaiseLabs/procedural-almanac/blob/main/CATALOG.md">almanac</a>: the hour's
+          tables, the cloud shadows, the lightning, the noise under the water, and the pixel shading.
+        </p>
+        <p id="error" class="bad" role="alert"></p>
+      </footer>
+    </main>
+
+    <script type="module">
+      import { decodePngBytes } from './decode.js';
+      import { analyse } from './analyse.js';
+      import { live, state } from './live.js';
+      import { ART, torches } from './art.js';
+
+      const $ = (id) => document.getElementById(id),
+        screen = $('screen'),
+        ctx = screen.getContext('2d', { alpha: false }),
+        lens = $('lens'),
+        lctx = lens.getContext('2d'),
+        status = $('status');
+
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const ui = {
+        tod: 0.25,
+        weather: 'clear',
+        wind: 0.5,
+        clouds: 0.45,
+        water: 1,
+        glow: 1,
+        paused: false,
+        daypass: !reduced,
+        speed: 180,
+        lens: false,
+      };
+
+      let island = null,
+        img = null,
+        t = 8,
+        last = performance.now(),
+        clock = 0,
+        fpsT = 0,
+        fpsN = 0,
+        paintMs = 0,
+        blitMs = 0;
+
+      // the hourLight's day: 0.25 noon, 0.75 midnight, so the clock reads twelve at noon and the names fall where the
+      // light is (a dawn at six, dusk at six)
+      const NAMES = [
+        [0, 'dawn'],
+        [0.045, 'morning'],
+        [0.15, 'late morning'],
+        [0.25, 'noon'],
+        [0.35, 'afternoon'],
+        [0.46, 'evening'],
+        [0.5, 'dusk'],
+        [0.56, 'night'],
+        [0.93, 'late night'],
+        [0.97, 'dawn'],
+        [1.01, 'dawn'],
+      ];
+      const nameOf = (tod) => NAMES.find(([k], i) => tod < (NAMES[i + 1]?.[0] ?? 2))?.[1] ?? 'midnight';
+      // the almanac's hour: noon at 0.25, so the clock reads a day with the sun highest at 12:00
+      const clockOf = (tod) => {
+        const h = (tod * 24 + 6) % 24,
+          hh = Math.floor(h),
+          mm = Math.floor((h - hh) * 60);
+        return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      };
+
+      // ------------------------------------------------------------------ read the art, find what moves, go live
+      async function start() {
+        const t0 = performance.now();
+        const res = await fetch(ART, { cache: 'force-cache' });
+        if (!res.ok) throw new Error(`the art did not load (${res.status})`);
+        const { W, H, px } = await decodePngBytes(await res.arrayBuffer());
+        const t1 = performance.now();
+        const reading = analyse(px, W, H, torches);
+        const t2 = performance.now();
+        island = live(reading);
+        const t3 = performance.now();
+        // the canvas is the art's own size, so the frame buffer can be shown with no copying at all
+        screen.width = lens.width = W;
+        screen.height = lens.height = H;
+        img = new ImageData(new Uint8ClampedArray(island.world.frame.buffer, 0, W * H * 4), W, H); // the frame, shared
+        drawLens(reading);
+        $('mMove').textContent = `${island.world.dirty.length.toLocaleString()} pixels`;
+        $('mAll').textContent =
+          `${(W * H).toLocaleString()} (${((island.world.dirty.length / (W * H)) * 100).toFixed(1)}%)`;
+        last = performance.now();
+        status.textContent = `${W} × ${H} art read in ${Math.round(t1 - t0)} ms, made live in ${Math.round(t3 - t2)} ms: ${reading.stats.lights} lamps found. ${island.stats.water.toLocaleString()} pixels of water, ${island.stats.fall.toLocaleString()} of falling water.`;
+      }
+
+      // ------------------------------------------------------------------ what moves, drawn once on a lens over the picture
+      function drawLens(reading) {
+        const { W, H } = reading,
+          out = new Uint32Array(W * H),
+          P = (r, g, b) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+        // the picture, faint, so the layers can be read against it
+        for (let i = 0; i < out.length; i++) {
+          const c = reading.px[i],
+            r = (c & 255) >> 2,
+            g = ((c >>> 8) & 255) >> 2,
+            b = ((c >>> 16) & 255) >> 2;
+          out[i] = P(r + 6, g + 8, b + 14);
+        }
+        for (const i of reading.waterIdx) out[i] = P(0, 96, 190);
+        for (const i of reading.fallIdx) out[i] = P(220, 60, 200);
+        for (const i of reading.foamIdx) out[i] = P(255, 236, 70);
+        for (const i of island.world.grassIdx) out[i] = P(60, 200, 110);
+        for (const L of reading.lights) {
+          for (let y = -L.r; y <= L.r; y++)
+            for (let x = -L.r; x <= L.r; x++) {
+              const d = Math.hypot(x, y * 1.6);
+              if (Math.abs(d - L.r) < 1.1 || Math.abs(d - L.r * 0.45) < 0.9) {
+                const px = Math.round(L.x + x),
+                  py = Math.round(L.y + y);
+                if (px >= 0 && py >= 0 && px < W && py < H) out[py * W + px] = P(255, 255, 255);
+              }
+            }
+        }
+        lctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), W, H), 0, 0);
+      }
+
+      // ------------------------------------------------------------------ the loop
+      function frame(now) {
+        const dt = Math.min(0.25, (now - last) / 1000);
+        last = now;
+        if (island && !ui.paused) {
+          if (ui.daypass) ui.tod = (ui.tod + dt / ui.speed) % 1;
+          clock += dt;
+          const step = 1 / 30; // thirty frames a second: what a wallpaper can keep up, on a phone, all day
+          if (clock >= step) {
+            clock %= step;
+            t += step;
+            const a = performance.now();
+            const f = island.paint(
+              t,
+              state({
+                tod: ui.tod,
+                weather: ui.weather,
+                wind: ui.wind,
+                clouds: ui.clouds,
+                water: ui.water,
+                glow: ui.glow,
+              }),
+            );
+            const b = performance.now();
+            ctx.putImageData(img, 0, 0);
+            const c = performance.now();
+            paintMs = paintMs * 0.9 + (b - a) * 0.1;
+            blitMs = blitMs * 0.9 + (c - b) * 0.1;
+            void f;
+            $('clock').textContent = clockOf(ui.tod);
+            $('mFrame').textContent = clockOf(ui.tod) + ' · ' + nameOf(ui.tod);
+            $('mMs').textContent = paintMs.toFixed(1) + ' · ' + blitMs.toFixed(1) + ' ms';
+            $('mFps').textContent = Math.round(fpsN / Math.max(0.001, (now - fpsT) / 1000));
+            if (now - fpsT > 500) {
+              fpsN = 0;
+              fpsT = now;
+            }
+          }
+        }
+        fpsN++;
+        requestAnimationFrame(frame);
+      }
+
+      // ------------------------------------------------------------------ the controls
+      const bind = (id, set, fmt) => {
+        const el = $(id),
+          out = $(id + 'Out');
+        const push = () => {
+          const v = +el.value;
+          set(v);
+          if (out) out.textContent = fmt(v);
+        };
+        el.addEventListener('input', push);
+        push();
+        return (v) => {
+          el.value = String(v);
+          push();
+        };
+      };
+      const setTod = bind(
+        'tod',
+        (v) => (ui.tod = v / 1000),
+        (v) => nameOf(v / 1000),
+      );
+      bind(
+        'wind',
+        (v) => (ui.wind = v / 100),
+        (v) => v + '%',
+      );
+      bind(
+        'clouds',
+        (v) => (ui.clouds = v / 100),
+        (v) => v + '%',
+      );
+      bind(
+        'water',
+        (v) => (ui.water = v / 100),
+        (v) => v + '%',
+      );
+      bind(
+        'glow',
+        (v) => (ui.glow = v / 100),
+        (v) => v + '%',
+      );
+      bind(
+        'speed',
+        (v) => (ui.speed = v),
+        (v) => `${Math.floor(v / 60)}:${String(Math.round(v % 60)).padStart(2, '0')}`,
+      );
+      $('tod').addEventListener('input', () => {
+        ui.daypass = false;
+        syncDaypass();
+      });
+
+      const syncDaypass = () => $('daypass').setAttribute('aria-pressed', String(ui.daypass));
+      $('daypass').addEventListener('click', () => {
+        ui.daypass = !ui.daypass;
+        syncDaypass();
+      });
+      $('pause').addEventListener('click', () => {
+        ui.paused = !ui.paused;
+        $('pause').textContent = ui.paused ? 'Play' : 'Pause';
+        $('pause').setAttribute('aria-pressed', String(ui.paused));
+        last = performance.now();
+        clock = 0;
+      });
+      $('lensBtn').addEventListener('click', () => {
+        ui.lens = !ui.lens;
+        $('phone').classList.toggle('show-lens', ui.lens);
+        $('lensBtn').setAttribute('aria-pressed', String(ui.lens));
+      });
+      $('still').addEventListener('click', () => {
+        screen.toBlob((blob) => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `island-alive-${clockOf(ui.tod).replace(':', '')}-${ui.weather}.png`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }, 'image/png');
+      });
+      for (const b of $('weather').querySelectorAll('button'))
+        b.addEventListener('click', () => {
+          ui.weather = b.dataset.w;
+          for (const o of $('weather').querySelectorAll('button')) o.setAttribute('aria-pressed', String(o === b));
+          if (ui.weather === 'storm' && ui.clouds < 0.7) {
+            ui.clouds = 0.75;
+            $('clouds').value = '75';
+            $('cloudsOut').textContent = '75%';
+          }
+        });
+      addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !/INPUT|BUTTON/.test(e.target.tagName)) {
+          e.preventDefault();
+          $('pause').click();
+        }
+      });
+
+      // the address bar can hold a look: ?tod=0.62&weather=storm&t=12
+      const q = new URLSearchParams(location.search);
+      if (q.has('tod')) {
+        ui.tod = +q.get('tod');
+        ui.daypass = false;
+        setTod(Math.round(ui.tod * 1000));
+      }
+      if (q.has('weather'))
+        $('weather')
+          .querySelector(`[data-w="${q.get('weather')}"]`)
+          ?.click();
+      if (q.has('t')) t = +q.get('t');
+      syncDaypass();
+      fpsT = performance.now();
+      requestAnimationFrame(frame);
+
+      start().catch((e) => {
+        $('error').textContent =
+          `The island could not be read: ${e.message}. It is loaded as a file over http, so serve the repository (python3 -m http.server) rather than opening this page from disk.`;
+        status.textContent = 'not running';
+      });
+    </script>
+  </body>
+</html>
