@@ -230,13 +230,23 @@ class BakedRiftScene(
     /** The emptiness is not still: fog drifts across it, very slowly, and never in the two bands a phone needs. */
     private fun drawFog() {
         if (fogIdx.isEmpty()) return
-        val drift = clock * 0.9
+        val drift = (clock * 0.9).toInt()
+        val block = max(2, (2 * u).toInt())
+        // one noise read a block: the fog is a slow smear, it does not need a value a pixel
+        val grid = IntArray(((W / block) + 2) * ((H / block) + 2))
+        val gw = (W / block) + 2
+        for (gy in 0 until (H / block) + 2) {
+            for (gx in 0 until gw) {
+                val n = at(fogTile, (gx * block + drift) / 2, (gy * block / 2 + drift / 3))
+                grid[gy * gw + gx] = (n * 1000).toInt()
+            }
+        }
         for (i in fogIdx) {
             val x = i % W
             val y = i / W
-            val n = at(fogTile, (x + drift).toInt() / 2, (y + drift * 0.35).toInt() / 2)
-            if (n < 0.52) continue
-            val k = (n - 0.52) * 0.55
+            val n = grid[(y / block) * gw + (x / block)]
+            if (n < 520) continue
+            val k = (n - 520) * 0.00055
             frame[i] = mixPacked(frame[i], fogColour, k)
         }
     }
@@ -482,16 +492,32 @@ class BakedRiftScene(
 
     /** The two bands a phone keeps its clock and dock in, darkened, so a painted map can run to the edges. */
     private fun scrim() {
-        val top = 0.135 * H
-        val bottom = 0.125 * H
         for (y in 0 until H) {
-            val k = (0.62 + 0.38 * smoothstep(0.0, top, y.toDouble())) *
-                (0.62 + 0.38 * smoothstep(0.0, bottom, (H - 1 - y).toDouble()))
-            if (k >= 0.999) continue
+            val ki = scrimAt(y)
+            if (ki >= 256) continue
             val row = y * W
-            for (x in 0 until W) frame[row + x] = scalePacked(frame[row + x], k)
+            for (x in 0 until W) {
+                val c = frame[row + x]
+                val r = (((c ushr 16) and 255) * ki) ushr 8
+                val g = (((c ushr 8) and 255) * ki) ushr 8
+                val b = ((c and 255) * ki) ushr 8
+                frame[row + x] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            }
         }
     }
+
+    /** The scrim never changes with the clock, so its rows are worked out once, as whole numbers out of 256. */
+    private val scrimRows: IntArray by lazy {
+        val top = 0.135 * H
+        val bottom = 0.125 * H
+        IntArray(H) { y ->
+            val k = (0.62 + 0.38 * smoothstep(0.0, top, y.toDouble())) *
+                (0.62 + 0.38 * smoothstep(0.0, bottom, (H - 1 - y).toDouble()))
+            (k * 256.0).roundToInt()
+        }
+    }
+
+    private fun scrimAt(y: Int): Int = scrimRows[y]
 
     override fun report(): List<String> = listOf(
         "baked rift \"$phrase\" ${W}x$H seed $seed",
