@@ -8,3 +8,6 @@ examples/**/poster.png
 # python leaves these behind
 tools/__pycache__/
 __pycache__/
+
+# a still from the live island example (film.mjs), beside the script
+examples/**/live-*.png

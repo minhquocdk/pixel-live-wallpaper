@@ -7,6 +7,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `examples/island/live`: the island as a live wallpaper's preview. A painted island (`art/island.png`) is read by
+  `analyse.js`, which finds the water, the falling water, the foam at its edges, the grass and thirty crystals in it;
+  `live.js` grades the picture for the hour once each time the light turns (`hourTables`, `gradeFrame`) and then paints
+  only what moves over it: `waterTime`-less wrapping noise for the swells, ripples and glints, the falls scrolled round
+  their own runs, the grass in a cross of sine waves, each lamp's halo in dithered steps, `cloudShadows` once a second,
+  rain, and `lightningFlash`. 155,000 of the picture's 1,572,670 pixels are painted in a frame (a ninth), about 4 ms each
+  in Node. `index.html` is the preview with a lens over what moves; `film.mjs` writes and times the stills.
+
 - `projection`: `obliqueShear`, `obliqueToScreen`, `obliqueToGround`; `relief` (new): `terraceLevel`, `wallShade`,
   `leafShade`, `crownRows`, `silhouetteNormals`, `crownClumps`, the depth view of OpenWorldBuilder's top worlds (the
   same pixels in Chromium: 0 different).
