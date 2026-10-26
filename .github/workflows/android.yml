@@ -20,7 +20,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # only used when a tag is pushed, to attach the APK to the release
+  contents: write # to keep the stills in the branch, and to attach the APK to a release
+  pull-requests: write # to say, on the pull request, what the compiler said
 
 concurrency:
   group: android-${{ github.ref }}
@@ -52,12 +53,31 @@ jobs:
         run: chmod +x gradlew
 
       - name: Grow an island and check it against the almanac
-        run: ./gradlew :core:test --console=plain
+        run: ./gradlew :core:test --console=plain 2>&1 | tee /tmp/build.log
 
       - name: Draw a still of the island
         run: |
           ./gradlew :core:preview --console=plain \
             --args="--seed heron-bay-8 --t 13.05 --fixed-day --tod 0.3 --out $GITHUB_WORKSPACE/android/island.png --scale 2"
+
+      - name: Draw the baked Rift, by day and by night
+        run: |
+          set -o pipefail
+          ./gradlew :core:preview --console=plain \
+            --args="--seed twin-rivers-8 --theme rift --baked $GITHUB_WORKSPACE/android/app/src/main/assets/rift --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-baked-day.png --scale 2 --frames 4" \
+            2>&1 | tee /tmp/rift-baked.txt
+          ./gradlew :core:preview --console=plain \
+            --args="--seed twin-rivers-8 --theme rift --baked $GITHUB_WORKSPACE/android/app/src/main/assets/rift --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-baked-night.png --scale 2 --frames 4" \
+            | tee -a /tmp/rift-baked.txt
+
+      - name: Draw the Rift, by day and by night
+        run: |
+          ./gradlew :core:preview --console=plain \
+            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.30 --out $GITHUB_WORKSPACE/android/rift-day.png --scale 2 --frames 4" \
+            | tee /tmp/rift-day.txt
+          ./gradlew :core:preview --console=plain \
+            --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.80 --out $GITHUB_WORKSPACE/android/rift-night.png --scale 2 --frames 4" \
+            | tee /tmp/rift-night.txt
 
       - name: Build the wallpaper
         run: ./gradlew :app:assembleDebug :app:assembleRelease --console=plain
@@ -83,6 +103,51 @@ jobs:
           path: android/island.png
           if-no-files-found: error
 
+      - name: Hand over the Rift stills
+        uses: actions/upload-artifact@v7
+        with:
+          name: rift-stills
+          path: |
+            android/rift-day.png
+            android/rift-night.png
+          if-no-files-found: error
+
+      - name: Keep the Rift's stills in the branch
+        continue-on-error: true
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          set -x
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          mkdir -p docs
+          for n in day night baked-day baked-night; do
+            cp "$GITHUB_WORKSPACE/android/rift-$n.png" "docs/rift-$n.png" 2>/dev/null || echo "no rift-$n.png was drawn"
+          done
+          {
+            echo "The engine's own numbers, as the build drew them (307 x 682, the frame a 20:9 phone gets):"
+            echo
+            echo '```'
+            grep -hE "^rift " /tmp/rift-day.txt /tmp/rift-night.txt /tmp/rift-baked.txt 2>/dev/null
+            echo '```'
+            echo
+            echo 'If the baked run complained, here is what it said:'
+            echo
+            echo '```'
+            tail -c 4000 /tmp/rift-baked.txt 2>/dev/null || echo '(nothing)'
+            echo '```'
+          } > docs/rift-report.md
+          git add docs/rift-day.png docs/rift-night.png docs/rift-baked-day.png docs/rift-baked-night.png docs/rift-report.md
+          if git diff --cached --quiet; then echo "the stills are as the branch already has them"; exit 0; fi
+          git commit -m "docs: the Rift's stills and numbers, as the engine drew them"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:$BRANCH"; then exit 0; fi
+            git pull --rebase origin "$BRANCH" || true
+          done
+          exit 1
+
       - name: Hand over the test report
         if: always()
         uses: actions/upload-artifact@v7
@@ -90,6 +155,28 @@ jobs:
           name: test-report
           path: android/core/build/reports/tests/test
           if-no-files-found: ignore
+
+      - name: Say what went wrong
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo 'The build stopped. What the tools said:'
+            echo '```'
+            for f in /tmp/build.log /tmp/rift-baked.txt /tmp/rift-day.txt /tmp/rift-night.txt; do
+              echo "--- $f ---"
+              tail -c 5000 "$f" 2>/dev/null || echo '(no such log)'
+            done
+            echo '--- files ---'
+            ls -la "$GITHUB_WORKSPACE/android"/*.png 2>/dev/null || true
+            echo '--- failing tests ---'
+            grep -h -A 3 '<failure' "$GITHUB_WORKSPACE"/android/core/build/test-results/test/*.xml 2>/dev/null | head -c 6000 || echo '(no test results)'
+            echo '--- test names ---'
+            grep -h -o 'testcase name="[^"]*"' "$GITHUB_WORKSPACE"/android/core/build/test-results/test/*.xml 2>/dev/null | head -40 || true
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/comment.md || true
 
   release:
     needs: build

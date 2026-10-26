@@ -58,7 +58,12 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.set_wallpaper).setOnClickListener { openPicker() }
 
         findRadioGroup(R.id.theme).setOnCheckedChangeListener { _, id ->
-            Prefs.setTheme(prefs, if (id == R.id.theme_maple) "maple" else "original")
+            val theme = when (id) {
+                R.id.theme_maple -> "maple"
+                R.id.theme_rift -> "rift"
+                else -> "original"
+            }
+            Prefs.setTheme(prefs, theme)
         }
         findRadioGroup(R.id.quality).setOnCheckedChangeListener { _, id ->
             val q = when (id) {
@@ -97,7 +102,13 @@ class MainActivity : Activity() {
 
     /** Ticks the choices the wallpaper is set to now. */
     private fun showChoices() {
-        findRadioGroup(R.id.theme).check(if (Prefs.theme(prefs) == "maple") R.id.theme_maple else R.id.theme_original)
+        findRadioGroup(R.id.theme).check(
+            when (Prefs.theme(prefs)) {
+                "maple" -> R.id.theme_maple
+                "rift" -> R.id.theme_rift
+                else -> R.id.theme_original
+            },
+        )
         when (Prefs.quality(prefs)) {
             Prefs.QUALITY_LOW -> R.id.quality_low
             Prefs.QUALITY_MEDIUM -> R.id.quality_medium

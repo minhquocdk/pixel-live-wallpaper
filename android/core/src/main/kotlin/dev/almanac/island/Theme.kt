@@ -1,13 +1,15 @@
 package dev.almanac.island
 
 /**
- * Which skin the island is drawn with.
- * ORIGINAL = the almanac's own colours (beiges, greens, browns).
+ * Which map the wallpaper draws.
+ * ORIGINAL = the almanac's own island: beiges, greens, browns.
  * MAPLE    = MapleStory-inspired: mushroom houses, maple autumn leaves, slimes.
+ * RIFT     = the twin rivers: a tall battleground map of lanes, a river and two great pits, drawn by RiftScene.
  */
 enum class Theme(val id: String) {
     ORIGINAL("original"),
-    MAPLE("maple");
+    MAPLE("maple"),
+    RIFT("rift");
 
     companion object {
         fun fromId(id: String?): Theme =
