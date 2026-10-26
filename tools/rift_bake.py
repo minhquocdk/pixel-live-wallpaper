@@ -413,17 +413,36 @@ def masks(w, h, px):
     px, repaired = clean_void(w, h, px, cls)
     print('emptiness repainted: %d pale pixels put back into the dark' % repaired)
 
+    # the two ends of the river are its falls: an engine that knows where the water leaves the plateau can pour
+    # something down there, instead of the painting ending in a flat cut
+    falls = 0
     m = bytearray(w * h * 3)
     counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
     for i in range(w * h):
         k = cls[i]
         counts[k] += 1
         if k == 4:
-            m[i * 3] = 255
+            x = i % w
+            y = i // w
+            lip = False
+            for dx in range(-4, 5):
+                nx = x + dx
+                if nx < 0 or nx >= w:
+                    lip = True
+                    break
+                if cls[y * w + nx] == 0:
+                    lip = True
+                    break
+            if lip and (x < w * 0.2 or x > w * 0.8):
+                m[i * 3] = 200
+                falls += 1
+            else:
+                m[i * 3] = 255
         elif k == 2:
             m[i * 3 + 1] = 255
         elif k == 3:
             m[i * 3 + 2] = 255
+    print('the falls: %d water pixels at the river ends the engine can pour down' % falls)
     return m, counts
 
 

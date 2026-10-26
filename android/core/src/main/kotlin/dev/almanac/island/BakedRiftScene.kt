@@ -37,6 +37,9 @@ class BakedRiftScene(
     private val kind = ByteArray(W * H)
     private val waterIdx = ArrayList<Int>(W * H / 8)
 
+    /** Water where it leaves the plateau: the two falls at the ends of the river. */
+    private val fallIdx = ArrayList<Int>(W * H / 64)
+
     /** Water pixels that touch something that is not water: the banks, where the foam lives. */
     private val bankIdx = ArrayList<Int>(W * H / 40)
 
@@ -55,6 +58,8 @@ class BakedRiftScene(
     private val fogTile: FloatArray by lazy { noiseTile(tileN, 12) { x, y -> indexRandom(x * 131 + y, seed + 31) } }
     private val swellTile: FloatArray by lazy { noiseTile(tileN, 10) { x, y -> indexRandom(x * 97 + y, seed + 5) } }
     private val rippleTile: FloatArray by lazy { noiseTile(tileN, 26) { x, y -> indexRandom(x * 61 + y, seed + 9) } }
+    // stretched down the fall: tall and thin, so a sample that slides down reads as water coming down a cliff
+    private val fallTile: FloatArray by lazy { noiseTile(tileN, 6) { x, y -> indexRandom(x * 37 + y, seed + 17) } }
 
     private fun at(tile: FloatArray, x: Int, y: Int): Double =
         tile[((y and (tileN - 1)) * tileN) + (x and (tileN - 1))].toDouble()
@@ -82,7 +87,7 @@ class BakedRiftScene(
     private val pitGlow = 0xFFFFB877.toInt()
 
     override val summary: String
-        get() = "${lanes.size} lanes read from the mask, ${waterIdx.size} water pixels"
+        get() = "${lanes.size} lanes read from the mask, ${waterIdx.size} water pixels, ${fallIdx.size} in the falls"
 
     init {
         require(mask.w * maskCells == W && mask.h * maskCells == H) {
@@ -97,7 +102,11 @@ class BakedRiftScene(
                     blueOf(cell) > 127 -> 3
                     else -> 0
                 }
-                if (k == 4) waterIdx.add(y * W + x)
+                if (k == 4) {
+                    waterIdx.add(y * W + x)
+                    // the bake marks a fall with a dimmer red, so the ends of the river can be poured down
+                    if (redOf(cell) in 160..230) fallIdx.add(y * W + x)
+                }
                 if (k != 0) kind[y * W + x] = k.toByte()
             }
         }
@@ -315,6 +324,32 @@ class BakedRiftScene(
             if (b < 0.1) continue
             val k = (b - 0.1) * 0.45
             frame[i] = mixPacked(frame[i], if (b > 0.75) 0xE8FCFB else 0xB6DCDA, k)
+        }
+        drawFalls(flow)
+    }
+
+    /**
+     * The falls: at each end of the river the water does not stop, it goes over. A tall, thin noise slides down over
+     * those pixels, so the two ends of the river keep moving all the way to the edge of the plateau, and a pale lip
+     * breaks at the top where it goes over.
+     */
+    private fun drawFalls(flow: Double) {
+        if (fallIdx.isEmpty()) return
+        val speed = (clock * 46).toInt()
+        for (j in fallIdx.indices) {
+            val i = fallIdx[j]
+            val x = i % W
+            val y = i / W
+            // sampled from a tile stretched lengthwise: the streak runs down, and slowly, as falling water does
+            val fall = at(fallTile, x, (y - speed) / 2)
+            val near = 0.5 + 0.5 * fall
+            val k = 0.16 + 0.34 * near
+            frame[i] = mixPacked(frame[i], if (near > 0.72) 0xEFFBFF else 0xBEE0EE, k)
+            // the lip: the row where the water goes over, quick and pale
+            if (y > 0 && kind[i - W].toInt() != 4) {
+                val pulse = 0.55 + 0.45 * sin(clock * 2.2 + x * 0.5)
+                frame[i] = mixPacked(frame[i], 0xFFFFFF, 0.35 + 0.35 * pulse)
+            }
         }
     }
 
