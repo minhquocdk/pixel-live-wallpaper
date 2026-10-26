@@ -48,7 +48,7 @@ fun hourTables(h: HourLight, dim: Double = 1.0, wet: Double = 0.0): HourTables {
 }
 
 /** A light in the frame: a lamp, a window, the beacon. Its reach is an ellipse, as the ground is seen from above. */
-class Light(val x: Double, val y: Double, val r: Double, val k: Double)
+class Light(val x: Double, val y: Double, val r: Double, val k: Double, val pit: Boolean = false)
 
 /**
  * A frame graded by the hour's tables, with lamps holding off the dark: where a light reaches, the graded colour is

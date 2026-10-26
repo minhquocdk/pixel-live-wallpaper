@@ -102,6 +102,11 @@
                     android:id="@+id/theme_maple"
                     style="@style/Choice"
                     android:text="@string/theme_maple" />
+
+                <RadioButton
+                    android:id="@+id/theme_rift"
+                    style="@style/Choice"
+                    android:text="@string/theme_rift" />
             </RadioGroup>
         </LinearLayout>
 

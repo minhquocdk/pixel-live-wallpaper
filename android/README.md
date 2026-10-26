@@ -26,6 +26,39 @@ kem, cửa tròn, cửa sổ sáng khi tối), **rừng lá phong** đỏ–cam�
 **lá phong rơi** lững lờ, người đi đường đội mũ nấm, và một tông màu ấm, rực hơn. Chọn trong app ở mục **Giao diện**.
 Mọi sprite đều tự vẽ bằng code (lấy cảm hứng từ MapleStory, không dùng asset gốc của Nexon).
 
+### Giao diện "Đảo Đôi Sông"
+
+![Đảo Đôi Sông ban ngày: lane dọc, sông có một cây cầu, rừng có tường đá, hai hố quái](docs/rift-day.png)
+
+![Đảo Đôi Sông ban đêm: trụ và pha lê sáng, hố quái phát sáng](docs/rift-night.png)
+
+Không phải một hòn đảo khác, mà là **một bản đồ khác**: bản đồ đấu hai bên, dựng cho màn hình dọc.
+
+- Hai căn cứ ở **đỉnh và đáy**, là ảnh quay 180° của nhau — cùng một nửa bản đồ, hai lần.
+- **Đường giữa** chạy thẳng theo trục dọc, ngắn và rộng nhất: đó là xương sống của hình nền.
+- **Hai đường biên** cong ra hai mép rồi nhập lại ở sông, dài gấp rưỡi đường giữa.
+- **Sông** chạy ngang giữa bản đồ, chỉ có **một cây cầu** ở chỗ cắt đường giữa, hai con cua bò dưới nước.
+- **Bốn khu rừng** hình chữ D, tường đá kín, đúng một cửa quay ra lane, lửa trại trong rừng sáng lên khi tối.
+- **Hai hố quái lớn**: một tím ở bờ trên, một cam ở bờ dưới, đối nhau qua tâm.
+- **18 trụ, 6 ức chế, 2 nhà chính**, mỗi bên 3 trụ một lane; lính hai màu đi ra theo đợt trên cả ba đường.
+- Bản đồ chạy **sát mép** khung; hai dải trên/dưới — nơi điện thoại để đồng hồ và dock — được engine làm tối dần
+  (một lớp `scrim`), nên chữ trắng của launcher vẫn đọc được mà không phải bỏ trống chỗ nào.
+
+**Bản nền vẽ tay, engine làm động.** Có hai cách dựng bản đồ này: engine tự vẽ từng pixel (`RiftScene`), hoặc lấy
+một ảnh pixel art làm **lớp tĩnh** rồi engine chỉ vẽ thứ phải động (`BakedRiftScene`). Cách thứ hai đang dùng:
+
+![Đảo Đôi Sông, nền vẽ, ban ngày](docs/rift-baked-day.png)
+
+- `tools/rift_bake.py` thu ảnh về đúng cỡ khung (307 × 682), lượng tử hoá còn 40 màu, và sinh thêm **mask**:
+  pixel nào là nước, pixel nào là đường, pixel nào là đá.
+- `BakedRiftScene` giữ nguyên nền, làm **nước động** trên đúng những pixel mask chỉ ra, đọc **ba lane** từ mask
+  cho lính đi, và phủ **ánh sáng theo giờ** + hai dải an toàn.
+- Mask là mấu chốt: ảnh là pixel chết, mask biến nó thành bản đồ có thể chạy.
+
+Bố cục này không vay từ bản đồ của game nào: nó là một bản đồ giả tưởng viết ra từ đặc tả
+[`docs/rift-portrait-spec.md`](docs/rift-portrait-spec.md), và hình dáng từng lane, từng trụ nằm trong
+`RiftPlan.kt` — toạ độ thuần, nên kiểm thử được bằng máy (đối xứng, mid ngắn nhất, sông cắt đúng một lần).
+
 ---
 
 ## Lấy APK (GitHub build hộ)
@@ -61,7 +94,7 @@ Mỗi APK được ký bằng khoá debug nên cài thẳng lên máy là chạy
 
 | Thứ | Làm gì |
 | --- | --- |
-| **Giao diện** | *Đảo gốc* hoặc *Làng Nấm Maple*. Đổi là đảo vẽ lại ngay, địa hình giữ nguyên. |
+| **Giao diện** | *Đảo gốc*, *Làng Nấm Maple* hoặc *Đảo Đôi Sông*. Đổi là vẽ lại ngay; hai giao diện đầu giữ nguyên địa hình, giao diện thứ ba là một bản đồ khác. |
 | **Hạt giống** | Gõ bất cứ gì: `heron-bay-8`, `mua-he-3`, `42`. Số thì dùng thẳng số đó, chữ thì băm thành số. |
 | **Ngẫu nhiên** | Bấm là ra hạt giống mới (một từ đầu + một từ cuối + số, ví dụ `amber-vale-7`) và đảo mọc lại ngay. |
 | **Nhấn đúp lên hình nền** | Đổi sang một hạt giống ngẫu nhiên khác mà không cần mở app. |
@@ -99,7 +132,10 @@ android/
     src/main/kotlin/dev/almanac/island/
       Maths, Rng, Noise, Colour, Palette, Water, Shapes, Sprite,
       World, Relief, Light, IslandScene      ← engine, 1:1 với scene.js
-      Theme.kt                               ← ORIGINAL / MAPLE: chọn bảng màu, nhà, cây, thú
+      Theme.kt                               ← ORIGINAL / MAPLE / RIFT: chọn bảng màu, nhà, cây, thú
+      LiveScene.kt                           ← thứ mà wallpaper nhìn thấy: một khung hình, một bước thời gian
+      RiftPlan.kt                            ← RIFT: toạ độ của bản đồ (lane, trụ, hố, rừng), không vẽ gì
+      RiftScene.kt                           ← RIFT: vẽ bản đồ đó, và cho lính đi
       preview/PreviewMain.kt                 ← vẽ ảnh PNG trên laptop/CI
     src/test/kotlin/dev/almanac/island/EngineTest.kt   ← 16 bài: so khớp với bản JS, và khung ổn định
   app/
@@ -125,6 +161,8 @@ cd android
 ./gradlew :core:preview --args="--seed heron-bay-8 --t 13.05 --fixed-day --tod 0.3 --out island.png --scale 2"
 # giao diện Maple
 ./gradlew :core:preview --args="--seed heron-bay-8 --theme maple --t 13 --fixed-day --tod 0.3 --out maple.png --scale 3"
+# giao diện Đảo Đôi Sông, đúng cỡ khung điện thoại dọc
+./gradlew :core:preview --args="--seed twin-rivers-8 --theme rift --size 307x682 --tod 0.30 --out rift-day.png --scale 2"
 ```
 
 `--tod` là giờ trong ngày (0..1: 0,3 là buổi sáng, 0,8 là đêm), `--scale 2` phóng to ảnh cho dễ nhìn.

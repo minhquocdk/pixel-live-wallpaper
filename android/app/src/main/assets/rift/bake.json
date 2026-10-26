@@ -1,0 +1,20 @@
+{
+  "source": "image-2.png",
+  "source_size": [
+    841,
+    1870
+  ],
+  "size": [
+    307,
+    682
+  ],
+  "colours": 48,
+  "share": {
+    "void": 0.1633,
+    "ground": 0.6676,
+    "road": 0.074,
+    "stone": 0.0365,
+    "water": 0.0586
+  },
+  "note": "background.png is the fixed layer; masks.png is R=water, G=road, B=stone. Regenerate with: python3 tools/rift_bake.py <reference.png> <out-dir> --w 307 --h 682"
+}
