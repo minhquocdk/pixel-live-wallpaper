@@ -606,7 +606,7 @@ export function paintDecor(frame, world, decor, t, s) {
 }
 
 // dirty estimation: lanes + camps + crabs + portals + flags need repaint
-// we grow world.dirty to cover them approx by 40px bboxes — caller merges
+// Sửa ghosting: phải cover TOÀN BỘ lane path (không chỉ waypoint), và flag wave, crab swim
 export function decorDirty(W, H) {
   const set = new Set();
   const addBox = (cx, cy, rw, rh) => {
@@ -615,15 +615,30 @@ export function decorDirty(W, H) {
       if (x >= 0 && x < W && y >= 0 && y < H) set.add(y * W + x);
     }
   };
-  // lanes thickened
-  for (const lane of Object.values(LANES)) for (const pt of lane) addBox(pt.x, pt.y, 10, 10);
-  // camps
-  for (const c of CAMPS) addBox(c.x, c.y, 18, 18);
-  // crabs
-  for (const c of RIVER_CRABS) addBox(c.x, c.y, 28, 12);
-  // portals
-  for (const p of PORTALS) addBox(p.x, p.y, p.r + 4, p.r + 4);
-  // flags
-  for (const f of FLAGS) addBox(f.x + 11, f.y + 9, 18, 14);
+  // lanes — trace từng đoạn với box dày để cover lính (kích thước ~9x10 + viền)
+  // Trước đây chỉ addBox ở waypoint gây ghosting giữa các điểm
+  for (const lane of Object.values(LANES)) {
+    for (let i = 1; i < lane.length; i++) {
+      const a = lane[i - 1], b = lane[i];
+      const steps = Math.hypot(b.x - a.x, b.y - a.y) | 0;
+      for (let k = 0; k <= steps; k++) {
+        const t = steps ? k / steps : 0;
+        const x = (a.x + (b.x - a.x) * t) | 0, y = (a.y + (b.y - a.y) * t) | 0;
+        addBox(x, y, 12, 12); // 12px để cover cả outline + bóng
+      }
+    }
+  }
+  // camps — vòng đá r=14 + quái bob 1px + lửa
+  for (const c of CAMPS) addBox(c.x, c.y, 20, 20);
+  // crabs — bơi sin 28px + thân 6px
+  for (const c of RIVER_CRABS) addBox(c.x, c.y, 40, 16);
+  // portals — r 18-20 + pulse
+  for (const p of PORTALS) addBox(p.x, p.y, p.r + 8, p.r + 8);
+  // flags — w 26 + wave ~6px, h 20 + pole
+  for (const f of FLAGS) {
+    const cx = f.x + (f.w >> 1) + 3, cy = f.y + (f.h >> 1);
+    addBox(cx, cy, 22, 16);
+    addBox(f.poleX, (f.poleY + f.y + f.h) >> 1, 4, (f.y + f.h - f.poleY) >> 1 + 4);
+  }
   return Int32Array.from(set);
 }
