@@ -364,50 +364,21 @@ def masks(w, h, px):
         if grown[i] and cls[i] == 1:
             cls[i] = 2
 
-    # the falls at the two ends of the river, at 300 pixels wide, are a few pale pixels that quantise into a flat
-    # pale slab. Give them back the river's own dark water instead of a colour the art never meant to be there.
-    dark = []
+    # The falls are the artist's, not ours: at each end of the river the water goes over the cliff in pale streaks.
+    # Leave that paint alone — the engine animates it — and just write down where it is, so the mask says "water that
+    # falls" rather than "water that lies still".
+    pale = bytearray(w * h)
     for i in range(w * h):
         if cls[i] != 4:
             continue
+        x = i % w
+        if x > w * 0.15 and x < w * 0.85:
+            continue  # the shine on the open river, which flows sideways, not down
         light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
-        if light < 120:
-            dark.append((px[i * 3], px[i * 3 + 1], px[i * 3 + 2]))
-    if dark:
-        dark.sort(key=lambda c: c[0] * 299 + c[1] * 587 + c[2] * 114)
-        river = dark[len(dark) // 2]
-        paled = 0
-        for y in range(h):
-            for x in range(w):
-                i = y * w + x
-                if cls[i] != 4:
-                    continue
-                if 0.06 < x / w < 0.94:
-                    continue
-                light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
-                if light <= 104:
-                    continue
-                # a waterfall, not a slab: dither the pale strip down into the river's own colour
-                px[i * 3], px[i * 3 + 1], px[i * 3 + 2] = river
-                paled += 1
-        # whatever light water is left at the two ends is the falls: dither it between two tones so it reads as water
-        # coming down the cliff instead of a flat rectangle pasted onto the dark
-        bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
-        lighter = (min(255, river[0] + 46), min(255, river[1] + 52), min(255, river[2] + 40))
-        fell = 0
-        for y in range(h):
-            for x in range(w):
-                i = y * w + x
-                if cls[i] != 4 or not (0.06 < x / w < 0.94):
-                    continue
-                light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
-                if light <= 104:
-                    continue
-                thr = (bayer[((y & 3) << 2) | (x & 3)] + 0.5) / 16.0
-                pick = lighter if thr < (light - 104) / 120.0 else river
-                px[i * 3], px[i * 3 + 1], px[i * 3 + 2] = pick
-                fell += 1
-        print('pale water at the river ends given back to the river: %d pixels, %d dithered as falls' % (paled, fell))
+        if light > 104:
+            pale[i] = 1
+    print('the falls: %d pale water pixels the painter drew at the ends of the river' % sum(pale))
+    del x
 
     cls = majority(w, h, cls, rounds=1)
     px, repaired = clean_void(w, h, px, cls)
@@ -415,34 +386,18 @@ def masks(w, h, px):
 
     # the two ends of the river are its falls: an engine that knows where the water leaves the plateau can pour
     # something down there, instead of the painting ending in a flat cut
-    falls = 0
     m = bytearray(w * h * 3)
     counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
     for i in range(w * h):
         k = cls[i]
         counts[k] += 1
         if k == 4:
-            x = i % w
-            y = i // w
-            lip = False
-            for dx in range(-4, 5):
-                nx = x + dx
-                if nx < 0 or nx >= w:
-                    lip = True
-                    break
-                if cls[y * w + nx] == 0:
-                    lip = True
-                    break
-            if lip and (x < w * 0.2 or x > w * 0.8):
-                m[i * 3] = 200
-                falls += 1
-            else:
-                m[i * 3] = 255
+            # a fall is water the painter made pale; every other drop is the river
+            m[i * 3] = 200 if pale[i] else 255
         elif k == 2:
             m[i * 3 + 1] = 255
         elif k == 3:
             m[i * 3 + 2] = 255
-    print('the falls: %d water pixels at the river ends the engine can pour down' % falls)
     return m, counts
 
 
