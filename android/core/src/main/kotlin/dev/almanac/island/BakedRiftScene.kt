@@ -46,6 +46,19 @@ class BakedRiftScene(
     /** The emptiness near the plateau's edge, where the fog drifts and nothing else is. */
     private val fogIdx = ArrayList<Int>(W * H / 20)
 
+    /** Every pixel that is on the plateau rather than in the emptiness: what a cloud can pass its shadow over. */
+    private val landIdx = ArrayList<Int>(W * H)
+
+    /**
+     * The shadow a cloud casts, by position along its path: one soft band a thousand steps long, read by an offset that
+     * creeps forward. Built once — a cloud that had to be shaped per pixel per frame would cost more than the picture.
+     */
+    private val cloudLut = DoubleArray(1024) { i ->
+        val v = 0.5 + 0.5 * sin(i * 6.2831853 / 1024.0)
+        val t = ((v - 0.42) / 0.58).coerceIn(0.0, 1.0)
+        t * t * (3 - 2 * t)
+    }
+
     /** Where the woods stand, so leaves can drift down from them. */
     private val woods = ArrayList<DoubleArray>()
 
@@ -102,6 +115,7 @@ class BakedRiftScene(
                     blueOf(cell) > 127 -> 3
                     else -> 0
                 }
+                if (k != 0 && k != 4) landIdx.add(y * W + x)
                 if (k == 4) {
                     waterIdx.add(y * W + x)
                     // the bake marks a fall with a dimmer red, so the ends of the river can be poured down
@@ -438,10 +452,32 @@ class BakedRiftScene(
             val t = tables.getOrPut(key) { hourTables(hl) }
             scratch = gradeFrame(frame, W, H, t, hl.night, lightsAt(hl.night), scratch)
         }
+        clouds(hl.night)
         // the light itself: a bloom over every lit thing, added after the grade, as real light is
         val night = hl.night
         if (night > 0.12) bloom(night)
         scrim()
+    }
+
+    /**
+     * Clouds, in daylight: one soft shade crosses the plateau every half minute or so, on the diagonal, taking the light
+     * off the grass and off the stone and giving it back. The map is large and the engines' other motions are small; this
+     * is the one that says the whole island is under a sky.
+     */
+    private fun clouds(night: Double) {
+        val strength = 0.30 * (1.0 - night).coerceIn(0.0, 1.0)
+        if (strength < 0.02) return
+        val phase = (clock * 7.0).toInt()
+        val col = 0x1b2836
+        for (j in landIdx.indices) {
+            val i = landIdx[j]
+            val x = i % W
+            val y = i / W
+            // a slope of five to three: the band is never square to the plateau's own rectangle
+            val s = cloudLut[(x * 5 + y * 3 - phase) and 1023]
+            if (s < 0.02) continue
+            frame[i] = mixPacked(frame[i], col, s * strength)
+        }
     }
 
     /** Bloom: the glow of each lamp and crystal, and its reflection stretched down the water under it. */
