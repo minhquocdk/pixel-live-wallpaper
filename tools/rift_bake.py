@@ -278,6 +278,51 @@ def majority(w, h, cls, rounds=2):
     return cls
 
 
+def clean_void(w, h, px, cls):
+    """The emptiness outside the plateau must stay empty.
+
+    At 307 pixels wide, a waterfall at the cliff's edge is a handful of pale pixels; quantised, they become a flat
+    pale rectangle floating in the dark, which reads as a mistake. So every pale pixel out in the emptiness is
+    repainted from the emptiness itself: a smooth gradient between the two ends of the void, taken from the void's own
+    colours at the top and the bottom of the picture.
+    """
+    void_rows = {}
+    for y in range(h):
+        row = []
+        for x in range(w):
+            i = y * w + x
+            if cls[i] != 0:
+                continue
+            light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
+            if light < 34:
+                row.append((px[i * 3], px[i * 3 + 1], px[i * 3 + 2]))
+        if row:
+            row.sort(key=lambda c: c[0] * 299 + c[1] * 587 + c[2] * 114)
+            void_rows[y] = row[len(row) // 2]
+    if not void_rows:
+        return px
+    ys = sorted(void_rows)
+    repaired = 0
+    for y in range(h):
+        top = void_rows[ys[0]]
+        # the nearest row that had any darkness in it
+        near = void_rows.get(y)
+        if near is None:
+            near = void_rows[min(ys, key=lambda v: abs(v - y))]
+        for x in range(w):
+            i = y * w + x
+            if cls[i] != 0:
+                continue
+            light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
+            if light <= 46:
+                continue
+            px[i * 3] = near[0]
+            px[i * 3 + 1] = near[1]
+            px[i * 3 + 2] = near[2]
+            repaired += 1
+    return px, repaired
+
+
 def masks(w, h, px):
     cls = bytearray(w * h)
     for i in range(w * h):
@@ -319,7 +364,54 @@ def masks(w, h, px):
         if grown[i] and cls[i] == 1:
             cls[i] = 2
 
+    # the falls at the two ends of the river, at 300 pixels wide, are a few pale pixels that quantise into a flat
+    # pale slab. Give them back the river's own dark water instead of a colour the art never meant to be there.
+    dark = []
+    for i in range(w * h):
+        if cls[i] != 4:
+            continue
+        light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
+        if light < 120:
+            dark.append((px[i * 3], px[i * 3 + 1], px[i * 3 + 2]))
+    if dark:
+        dark.sort(key=lambda c: c[0] * 299 + c[1] * 587 + c[2] * 114)
+        river = dark[len(dark) // 2]
+        paled = 0
+        for y in range(h):
+            for x in range(w):
+                i = y * w + x
+                if cls[i] != 4:
+                    continue
+                if 0.06 < x / w < 0.94:
+                    continue
+                light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
+                if light <= 104:
+                    continue
+                # a waterfall, not a slab: dither the pale strip down into the river's own colour
+                px[i * 3], px[i * 3 + 1], px[i * 3 + 2] = river
+                paled += 1
+        # whatever light water is left at the two ends is the falls: dither it between two tones so it reads as water
+        # coming down the cliff instead of a flat rectangle pasted onto the dark
+        bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
+        lighter = (min(255, river[0] + 46), min(255, river[1] + 52), min(255, river[2] + 40))
+        fell = 0
+        for y in range(h):
+            for x in range(w):
+                i = y * w + x
+                if cls[i] != 4 or not (0.06 < x / w < 0.94):
+                    continue
+                light = (px[i * 3] * 299 + px[i * 3 + 1] * 587 + px[i * 3 + 2] * 114) // 1000
+                if light <= 104:
+                    continue
+                thr = (bayer[((y & 3) << 2) | (x & 3)] + 0.5) / 16.0
+                pick = lighter if thr < (light - 104) / 120.0 else river
+                px[i * 3], px[i * 3 + 1], px[i * 3 + 2] = pick
+                fell += 1
+        print('pale water at the river ends given back to the river: %d pixels, %d dithered as falls' % (paled, fell))
+
     cls = majority(w, h, cls, rounds=1)
+    px, repaired = clean_void(w, h, px, cls)
+    print('emptiness repainted: %d pale pixels put back into the dark' % repaired)
 
     m = bytearray(w * h * 3)
     counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}

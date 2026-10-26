@@ -46,6 +46,7 @@ class BakedRiftScene(
 
     /** A glow's falloff, by radius: built once, reused every frame. */
     private val falloff = HashMap<Int, DoubleArray>()
+    private val glowCache = HashMap<Int, IntArray>()
 
     // Noise, precomputed once and read by offset: a per-pixel noise call costs more than the whole picture.
     private val tileN = 128
@@ -421,26 +422,50 @@ class BakedRiftScene(
         }
     }
 
+    /**
+     * A glow, laid on. The strength is quantised to sixteenths and the whole thing cached, so a lamp that pulses costs
+     * a lookup and an add a pixel, not a falloff and three multiplies: thirty lamps a frame is most of the frame.
+     */
     private fun addGlow(cx: Double, cy: Double, r: Double, colour: Int, strength: Double) {
         val rad = max(2, r.toInt())
-        val f = falloffFor(rad)
+        val step = (clamp(strength) * 16).roundToInt().coerceIn(0, 16)
+        if (step == 0) return
+        val key = (rad shl 12) or (colour and 0xFFFFFF ushr 8 shl 4) or step
+        val lit = glowCache.getOrPut(key) {
+            val f = falloffFor(rad)
+            val n = rad * 2 + 1
+            val out = IntArray(n * n)
+            val s = step / 16.0
+            for (k in 0 until n * n) {
+                val a = f[k] * s
+                if (a < 0.01) continue
+                out[k] = (
+                    ((redOf(colour) * a).roundToInt() shl 16) or
+                        ((greenOf(colour) * a).roundToInt() shl 8) or
+                        (blueOf(colour) * a).roundToInt()
+                    )
+            }
+            out
+        }
+        val n = rad * 2 + 1
         val x0 = (cx - rad).toInt()
         val y0 = (cy - rad).toInt()
-        for (dy in 0..rad * 2) {
+        for (dy in 0 until n) {
             val y = y0 + dy
             if (y < 0 || y >= H) continue
-            for (dx in 0..rad * 2) {
+            val row = y * W
+            val gRow = dy * n
+            for (dx in 0 until n) {
+                val add = lit[gRow + dx]
+                if (add == 0) continue
                 val x = x0 + dx
                 if (x < 0 || x >= W) continue
-                val a = f[dy * (rad * 2 + 1) + dx] * strength
-                if (a < 0.01) continue
-                val i = y * W + x
-                val src = frame[i]
-                frame[i] = rgb(
-                    redOf(src) + (255 - redOf(src)) * a * redOf(colour) / 255.0,
-                    greenOf(src) + (255 - greenOf(src)) * a * greenOf(colour) / 255.0,
-                    blueOf(src) + (255 - blueOf(src)) * a * blueOf(colour) / 255.0,
-                )
+                val i = row + x
+                val c = frame[i]
+                val r2 = min(255, ((c ushr 16) and 255) + ((add ushr 16) and 255))
+                val g2 = min(255, ((c ushr 8) and 255) + ((add ushr 8) and 255))
+                val b2 = min(255, (c and 255) + (add and 255))
+                frame[i] = (0xFF shl 24) or (r2 shl 16) or (g2 shl 8) or b2
             }
         }
     }
