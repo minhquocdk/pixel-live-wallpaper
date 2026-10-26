@@ -46,7 +46,7 @@ class BakedRiftScene(
 
     /** A glow's falloff, by radius: built once, reused every frame. */
     private val falloff = HashMap<Int, DoubleArray>()
-    private val glowCache = HashMap<Int, IntArray>()
+    private val glowCache = HashMap<String, IntArray>()
 
     // Noise, precomputed once and read by offset: a per-pixel noise call costs more than the whole picture.
     private val tileN = 128
@@ -430,7 +430,9 @@ class BakedRiftScene(
         val rad = max(2, r.toInt())
         val step = (clamp(strength) * 16).roundToInt().coerceIn(0, 16)
         if (step == 0) return
-        val key = (rad shl 12) or (colour and 0xFFFFFF ushr 8 shl 4) or step
+        // a key with the three things in it, and nothing else: a packed integer had room for a small radius only,
+        // and two radii sharing a key shared the wrong table
+        val key = "$rad/${colour and 0xFFFFFF}/$step"
         val lit = glowCache.getOrPut(key) {
             val f = falloffFor(rad)
             val n = rad * 2 + 1
