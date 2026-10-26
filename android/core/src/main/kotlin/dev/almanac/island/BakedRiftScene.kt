@@ -47,6 +47,15 @@ class BakedRiftScene(
     /** A glow's falloff, by radius: built once, reused every frame. */
     private val falloff = HashMap<Int, DoubleArray>()
 
+    // Noise, precomputed once and read by offset: a per-pixel noise call costs more than the whole picture.
+    private val tileN = 128
+    private val fogTile: FloatArray by lazy { noiseTile(tileN, 12) { x, y -> indexRandom(x * 131 + y, seed + 31) } }
+    private val swellTile: FloatArray by lazy { noiseTile(tileN, 10) { x, y -> indexRandom(x * 97 + y, seed + 5) } }
+    private val rippleTile: FloatArray by lazy { noiseTile(tileN, 26) { x, y -> indexRandom(x * 61 + y, seed + 9) } }
+
+    private fun at(tile: FloatArray, x: Int, y: Int): Double =
+        tile[((y and (tileN - 1)) * tileN) + (x and (tileN - 1))].toDouble()
+
     /** The three lanes, as polylines read out of the mask: mid, left, right. */
     val lanes: List<List<DoubleArray>>
 
@@ -225,7 +234,7 @@ class BakedRiftScene(
         for (i in fogIdx) {
             val x = i % W
             val y = i / W
-            val n = valueNoise((x + drift) / (26.0 * u), (y + drift * 0.35) / (18.0 * u), seed + 31)
+            val n = at(fogTile, (x + drift).toInt() / 2, (y + drift * 0.35).toInt() / 2)
             if (n < 0.52) continue
             val k = (n - 0.52) * 0.55
             frame[i] = mixPacked(frame[i], fogColour, k)
@@ -244,8 +253,8 @@ class BakedRiftScene(
             val x = i % W
             val y = i / W
             // the river runs across the picture, so the swell drifts sideways and the ripples a little against it
-            val swell = valueNoise((x + flow) / (22.0 * u), (y + T.sv * 0.6) / (12.0 * u), seed + 5)
-            val ripple = valueNoise((x + T.r1 * 0.5) / (6.0 * u), (y - T.r2 * 0.4) / (4.5 * u), seed + 9)
+            val swell = at(swellTile, (x + flow.toInt()) / 3, (y + T.sv) / 3)
+            val ripple = at(rippleTile, (x + T.r1) / 2, (y - T.r2) / 2)
             val v = swell * 0.6 + ripple * 0.4
             var c = scalePacked(base[i], 0.92 + 0.16 * v)
             // a glint on a crest, now and then, never twice in the same place
@@ -338,9 +347,10 @@ class BakedRiftScene(
             val x = w[0] + sin(t * 6.3 + k) * 16 * s
             val y = w[1] - 26 * s + t * 76 * s
             if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue
-            val c = if (k % 3 == 0) leafGold else leafGreen
-            blend(x, y, c, 1.0)
-            blend(x + 0.8 * s, y + 0.5 * s, mixPacked(c, 0x000000, 0.35), 0.8)
+            val night = hourLight(tod).night
+            val c = mixPacked(if (k % 3 == 0) leafGold else leafGreen, 0x101418, 0.25 + 0.45 * night)
+            blend(x, y, c, 0.95)
+            blend(x + 0.8 * s, y + 0.5 * s, mixPacked(c, 0x000000, 0.4), 0.7)
         }
     }
 
