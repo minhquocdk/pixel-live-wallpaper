@@ -26,6 +26,7 @@ import {
   linearCongruential,
   clamp,
 } from '../../../src/index.js';
+import { buildDecor, paintDecor, decorDirty, DEFAULT_DECOR } from './decor.js';
 
 const R = (c) => c & 255,
   G = (c) => (c >>> 8) & 255,
@@ -62,6 +63,7 @@ export const DEFAULT_STATE = Object.freeze({
   water: 1,
   breeze: 1,
   rain: 1,
+  decor: { ...DEFAULT_DECOR },
 });
 
 /**
@@ -70,7 +72,10 @@ export const DEFAULT_STATE = Object.freeze({
  * @returns {State}
  */
 export function state(o = {}) {
-  return { ...DEFAULT_STATE, ...o };
+  const s = { ...DEFAULT_STATE, ...o };
+  if (o.decor) s.decor = { ...DEFAULT_DECOR, ...o.decor };
+  else if (!s.decor) s.decor = { ...DEFAULT_DECOR };
+  return s;
 }
 
 /**
@@ -180,11 +185,15 @@ export function buildWorld(reading, o = {}) {
     };
   for (const idx of [reading.waterIdx, reading.foamIdx, reading.fallIdx, reading.gemIdx, grassIdx]) add(idx);
   for (const L of lights) add(L.off);
+  // decor keeps its own pixels moving, so they must be dirty too
+  const decorIdx = decorDirty(W, H);
+  for (let k = 0; k < decorIdx.length; k++) touched[decorIdx[k]] = 1;
   let dirtyN = 0;
   for (let i = 0; i < N; i++) if (touched[i]) dirtyN++;
   const dirty = new Int32Array(dirtyN);
   for (let i = 0, k = 0; i < N; i++) if (touched[i]) dirty[k++] = i;
 
+  const decor = buildDecor({ W, H, lights });
   return {
     W,
     H,
@@ -193,6 +202,8 @@ export function buildWorld(reading, o = {}) {
     reading,
     grassIdx,
     dirty,
+    decor,
+    decorDirty: decorIdx,
     staticFrame: new Uint32Array(px),
     cloudFrame: new Uint32Array(px),
     frame: new Uint32Array(px),
@@ -430,6 +441,10 @@ export function paint(world, t, s = DEFAULT_STATE) {
       if (twinkle(t * 1.3, ((x * 5 + y * 3) & 255) * 0.0246, 0.55) > 0.92) frame[i] = gem.hot[k];
     }
   }
+
+  // ---------------------------------------------------------------- trang trí MOBA (decor)
+  // vẽ sau tất cả nhưng trước weather, để lính không bị mưa che quá nhiều; cổng/lava phát sáng trên mọi thứ
+  paintDecor(frame, world, world.decor, t, s);
 
   // ---------------------------------------------------------------- the weather
   if (wet > 0) {

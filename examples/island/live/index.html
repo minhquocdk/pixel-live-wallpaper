@@ -335,6 +335,28 @@
           </label>
         </fieldset>
 
+        <fieldset id="decorField">
+          <legend>Trang trí · MOBA</legend>
+          <div class="row" style="justify-content: space-between">
+            <span style="font: 600 13px var(--mono); color: var(--muted)">Lấy cảm hứng từ bản đồ mẫu</span>
+            <button type="button" id="decorToggle" aria-pressed="true" style="padding: 6px 10px; font-size: 13px">
+              Bật / Tắt
+            </button>
+          </div>
+          <div class="seg" id="decorSeg">
+            <button type="button" data-k="minions" aria-pressed="true" title="Lính đi theo 3 đường">🧍 Lính</button>
+            <button type="button" data-k="jungle" aria-pressed="true" title="Quái rừng ở 4 bãi">👹 Quái rừng</button>
+            <button type="button" data-k="crabs" aria-pressed="true" title="Cua sông bơi qua lại">🦀 Cua sông</button>
+            <button type="button" data-k="portals" aria-pressed="true" title="Cổng tím & hố dung nham">🌀 Cổng / Lava</button>
+            <button type="button" data-k="flags" aria-pressed="true" title="Cờ phấp phới trên thành">🚩 Cờ</button>
+            <button type="button" data-k="laneGlow" aria-pressed="true" title="Hào quang trụ">💡 Trụ</button>
+          </div>
+          <p class="note" style="margin-top: 2px">
+            <b>Lính</b> tuần 3 lane (mid/left/right) — đỏ 🔴 đi xuống, xanh 🔵 đi lên. <b>Quái rừng</b> thở ở 4 bãi trong
+            rừng. <b>Cua</b> bơi qua sông. <b>Cổng</b> tím xoáy &amp; <b>lava</b> sôi. <b>Cờ</b> phấp phới theo gió.
+          </p>
+        </fieldset>
+
         <div class="row">
           <button type="button" class="primary" id="pause" aria-pressed="false">Pause</button>
           <button type="button" id="lensBtn" aria-pressed="false">What moves</button>
@@ -390,6 +412,7 @@
         daypass: !reduced,
         speed: 180,
         lens: false,
+        decor: { enabled: true, minions: true, jungle: true, crabs: true, portals: true, flags: true, laneGlow: true },
       };
 
       let island = null,
@@ -477,6 +500,8 @@
               }
             }
         }
+        // decor (MOBA): cho lens thấy rõ — tím hồng cho toàn bộ decor
+        if (island.world.decorDirty) for (const i of island.world.decorDirty) out[i] = P(255, 80, 255);
         lctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), W, H), 0, 0);
       }
 
@@ -501,6 +526,7 @@
                 clouds: ui.clouds,
                 water: ui.water,
                 glow: ui.glow,
+                decor: ui.decor,
               }),
             );
             const b = performance.now();
@@ -610,6 +636,26 @@
             $('cloudsOut').textContent = '75%';
           }
         });
+      // decor toggles (MOBA)
+      const decorToggle = $('decorToggle');
+      const syncDecor = () => {
+        decorToggle.setAttribute('aria-pressed', String(ui.decor.enabled));
+        decorToggle.textContent = ui.decor.enabled ? 'Tắt decor' : 'Bật decor';
+        $('decorField').style.opacity = ui.decor.enabled ? '1' : '0.55';
+        for (const b of $('decorSeg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(!!ui.decor[b.dataset.k]));
+      };
+      decorToggle.addEventListener('click', () => {
+        ui.decor.enabled = !ui.decor.enabled;
+        syncDecor();
+      });
+      for (const b of $('decorSeg').querySelectorAll('button'))
+        b.addEventListener('click', () => {
+          const k = b.dataset.k;
+          ui.decor[k] = !ui.decor[k];
+          if (ui.decor[k]) ui.decor.enabled = true;
+          syncDecor();
+        });
+      syncDecor();
       addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !/INPUT|BUTTON/.test(e.target.tagName)) {
           e.preventDefault();

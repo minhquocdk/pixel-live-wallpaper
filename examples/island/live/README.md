@@ -37,7 +37,21 @@ node examples/island/live/film.mjs --weather storm --sheet sheet.png   # six loo
 | `png.mjs`        | the art read and the stills written in Node, with nothing but `node:zlib`                                                                                                  |
 | `art.js`         | where the art is, and the four braziers colour alone cannot find                                                                                                           |
 | `index.html`     | the preview: a phone's frame, the hour, the weather, the lens, the meter                                                                                                   |
+| `decor.js`       | trang trí MOBA — lính đi lane, quái rừng, cua sông, cờ phấp phới, cổng tím & hố dung nham (lấy cảm hứng từ bản đồ MOBA mẫu)                                               |
 | `film.mjs`       | stills and a contact sheet in Node, each timed                                                                                                                             |
+
+### Trang trí MOBA (mới)
+
+Lấy cảm hứng từ bản đồ MOBA mẫu, `decor.js` thêm lớp trang trí vẽ đè lên đảo:
+
+- **Lính (minions)** — 3 lane (mid/left/right), mỗi lane 5 lính đỏ đi xuống & 5 lính xanh đi lên, nhịp bước theo `t` và gió;
+- **Quái rừng** — 4 bãi cạnh rừng: Golem đá (top-left), Cua đỏ (top-right), Sói xám (bottom-left), Nhện tím (bottom-right), mỗi bãi có vòng đá & lửa trại thở;
+- **Cua sông** — 3 cua bơi qua lại trên sông, càng vẫy theo `t`;
+- **Cổng tím & hố dung nham** — portal xoáy ở phía bắc sông, lava sôi ở phía nam sông, có lửa & khói bay lên;
+- **Cờ** — 8 lá cờ (đỏ trên, xanh dưới) phấp phới theo gió `sin(t)`, có emblem lửa/nước;
+- **Hào quang trụ** — vòng sáng nhấp nháy quanh trụ khi đêm xuống.
+
+Tất cả là pixel vẽ trực tiếp lên `frame` (không cần sprite sheet), tôn trọng dirty-optimisation: `decorDirty` được gộp vào `world.dirty` nên mỗi frame chỉ tốn thêm ~35k pixels (~2%) — tổng ~190k/1.57M (~12%) vẫn mượt 30fps trên điện thoại. Tắt/mở từng loại trong panel **Trang trí · MOBA**; `state({decor:{minions:false}})` cũng tắt được qua code/URL `?t=`.
 
 ### What is drawn, and how much of it
 
