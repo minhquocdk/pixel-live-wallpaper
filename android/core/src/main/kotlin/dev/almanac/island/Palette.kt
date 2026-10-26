@@ -11,6 +11,9 @@ val LOOK: Grade = Grade(sat = 1.08, warm = 0.05, contrast = 1.04)
 /** MapleStory-inspired warmer, more saturated grade: Henesys pastel spring. */
 val LOOK_MAPLE: Grade = Grade(sat = 1.22, warm = 0.10, contrast = 1.08)
 
+/** The Rift's grade: a touch more saturated and more contrasty than the island, so lanes and walls read on dark. */
+val LOOK_RIFT: Grade = Grade(sat = 1.12, warm = 0.02, contrast = 1.10)
+
 /** A marker pixel: alpha 0xFE, so it never passes for a colour; it says a light lights up after dark, and whose. */
 fun marker(type: Int, id: Int = 0): Int = (0xFE shl 24) or (type shl 16) or (id and 0xFFFF)
 
@@ -45,6 +48,11 @@ class Palette(val theme: Theme = Theme.ORIGINAL) {
     }
 
     val isMaple: Boolean get() = theme == Theme.MAPLE
+
+    val isRift: Boolean get() = theme == Theme.RIFT
+
+    /** A colour through the Rift's own grade, whatever theme this palette was built for. */
+    fun rift(s: String): Int = gradeColour(dev.almanac.island.hex(s), LOOK_RIFT)
 
     // Base terrain — maple is a bit brighter/warmer
     val sand = hex(if (isMaple) "#f2e0a8" else "#ead9a2")
